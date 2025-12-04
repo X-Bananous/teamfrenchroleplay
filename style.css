@@ -40,12 +40,27 @@ body {
     100% { transform: translateY(0px); }
 }
 
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 .animate-fade-in {
     animation: fadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
 .animate-pulse-slow {
     animation: float 8s ease-in-out infinite;
+}
+
+/* Loader */
+.loader-spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    border-top-color: var(--apple-blue);
+    animation: spin 1s ease-in-out infinite;
+    box-shadow: 0 0 20px rgba(10, 132, 255, 0.2);
 }
 
 /* Glassmorphism Classes */
@@ -111,6 +126,20 @@ body {
 
 .glass-btn-secondary:hover {
     background: rgba(255, 255, 255, 0.15);
+}
+
+/* Badge Styles */
+.badge-staff {
+    background: rgba(168, 85, 247, 0.2);
+    color: #d8b4fe;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.badge-foundation {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(245, 158, 11, 0.2));
+    color: #fcd34d;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    text-shadow: 0 0 10px rgba(234, 179, 8, 0.5);
 }
 
 /* Utility */

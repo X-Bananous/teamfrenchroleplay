@@ -55,6 +55,13 @@
 </head>
 <body class="bg-black text-white overflow-hidden antialiased selection:bg-apple-blue selection:text-white h-screen w-screen">
     
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center transition-opacity duration-700">
+        <div class="loader-spinner mb-6"></div>
+        <div class="text-2xl font-bold tracking-tight text-white mb-2 text-glow">TFRP</div>
+        <div class="text-blue-400/80 text-xs font-medium tracking-[0.3em] uppercase animate-pulse">Chargement</div>
+    </div>
+
     <!-- Main App Container -->
     <div id="app" class="relative z-10 h-full w-full flex flex-col transition-opacity duration-500 opacity-0">
         <!-- Views will be injected here by app.js -->

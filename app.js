@@ -8,26 +8,33 @@
 const CONFIG = {
     SUPABASE_URL: 'https://nitlrwmgoddqabasavrg.supabase.co',
     SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pdGxyd21nb2RkcWFiYXNhdnJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3Mzg3NTIsImV4cCI6MjA3OTMxNDc1Mn0.Y5BFeTuv-dxLpf9ocqyhaWMLLCwlKf-bPDgpWq0o8oU',
-    APP_NAME: 'TFRP',
-    VERSION: '2.3.0 (ERLC Edition)',
-    // Note: Avec Supabase Auth, le Redirect URI doit aussi être configuré dans le dashboard Supabase
+    
+    // Discord Configuration
+    DISCORD_CLIENT_ID: '1442491338552512584',
     REDIRECT_URI: 'https://x-bananous.github.io/teamfrenchroleplay/',
     REQUIRED_GUILD_ID: '1279455759414857759',
     INVITE_URL: 'https://discord.gg/eBU7KKKGD5',
-    MAX_SLOTS: 42, // Mise à jour demandée
-    MAX_CHARS: 2,  // Mise à jour demandée
-    ADMIN_IDS: ['814950374283804762', '1121157707341254656']
+    
+    // Game Rules
+    MAX_SLOTS: 42,
+    MAX_CHARS: 2,
+    
+    // Hardcoded Admins (Discord IDs) - LA FONDATION
+    ADMIN_IDS: [
+        '814950374283804762', // Admin 1
+        '1121157707341254656' // Admin 2
+    ]
 };
 
 // --- Global State ---
 const state = {
-    user: null, // Sera rempli par Supabase User + Metadata
-    session: null,
+    user: null, // Données Discord + Metadata
+    accessToken: null,
     characters: [],
+    pendingApplications: [], // Liste pour le staff
     activeCharacter: null,
     currentView: 'login', // login, select, create, hub, access_denied
     activeHubPanel: 'main',
-    isLoading: true,
     supabase: null,
     queueCount: Math.floor(Math.random() * 8) + 1 // Simulation file d'attente
 };
@@ -56,8 +63,8 @@ const Views = {
                 </div>
 
                 <p class="mt-8 text-[10px] text-gray-600 max-w-[200px]">
-                    Sauvegarde Cloud active via Supabase.
-                    Vérification de présence Discord requise.
+                    Connexion sécurisée via Discord.
+                    Vérification de présence serveur requise.
                 </p>
             </div>
         </div>
@@ -94,14 +101,38 @@ const Views = {
     CharacterSelect: () => {
         const charsHtml = state.characters.map(char => {
             const isAccepted = char.status === 'accepted';
+            const isRejected = char.status === 'rejected';
+            
             const statusColor = isAccepted ? 'text-emerald-400 bg-emerald-500/10' : 
-                                char.status === 'rejected' ? 'text-red-400 bg-red-500/10' : 'text-amber-400 bg-amber-500/10';
-            const statusIcon = isAccepted ? 'check-circle' : char.status === 'rejected' ? 'x-circle' : 'clock';
+                                isRejected ? 'text-red-400 bg-red-500/10' : 'text-amber-400 bg-amber-500/10';
+            const statusIcon = isAccepted ? 'check-circle' : isRejected ? 'x-circle' : 'clock';
 
-            // Logique Bypass Staff
-            const canPlay = isAccepted || state.user.isStaff;
-            const btnText = isAccepted ? 'Accéder au Hub' : (state.user.isStaff ? 'Accès Staff (Force)' : 'Dossier en cours');
-            const btnClass = isAccepted ? 'glass-btn' : (state.user.isStaff ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-500/30' : 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/5');
+            // Logique Bouton Principal
+            let btnHtml = '';
+            
+            if (isRejected) {
+                // Bouton Supprimer si rejeté
+                btnHtml = `
+                    <button onclick="actions.deleteCharacter('${char.id}')" class="bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/20 w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i> Supprimer / Recommencer
+                    </button>
+                `;
+            } else {
+                // Logique normale
+                const canPlay = isAccepted || state.user.isStaff;
+                const btnText = isAccepted ? 'Accéder au Hub' : (state.user.isStaff ? 'Accès Staff (Force)' : 'Dossier en cours');
+                const btnClass = isAccepted ? 'glass-btn' : (state.user.isStaff ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-500/30' : 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/5');
+
+                btnHtml = `
+                    <button 
+                        ${canPlay ? `onclick="actions.selectCharacter('${char.id}')"` : 'disabled'} 
+                        class="${btnClass} w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg"
+                    >
+                        ${state.user.isStaff && !isAccepted ? '<i data-lucide="shield-alert" class="w-4 h-4"></i>' : '<i data-lucide="play" class="w-4 h-4 fill-current"></i>'} 
+                        ${btnText}
+                    </button>
+                `;
+            }
 
             return `
                 <div class="glass-card group p-6 rounded-[30px] w-full md:w-[340px] relative overflow-hidden flex flex-col h-[380px] hover:border-blue-500/30 transition-all">
@@ -134,13 +165,7 @@ const Views = {
                     </div>
 
                     <div class="mt-6">
-                        <button 
-                            ${canPlay ? `onclick="actions.selectCharacter('${char.id}')"` : 'disabled'} 
-                            class="${btnClass} w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg"
-                        >
-                            ${state.user.isStaff && !isAccepted ? '<i data-lucide="shield-alert" class="w-4 h-4"></i>' : '<i data-lucide="play" class="w-4 h-4 fill-current"></i>'} 
-                            ${btnText}
-                        </button>
+                        ${btnHtml}
                     </div>
                 </div>
             `;
@@ -155,7 +180,7 @@ const Views = {
                     </div>
                     <div class="flex items-center gap-4">
                          ${state.user.isStaff ? `
-                            <div class="px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-xl text-xs font-bold text-purple-300 flex items-center gap-2">
+                            <div class="px-4 py-2 badge-staff rounded-xl text-xs font-bold flex items-center gap-2">
                                 <i data-lucide="shield" class="w-4 h-4"></i> Mode Staff
                             </div>
                         ` : ''}
@@ -167,6 +192,22 @@ const Views = {
 
                 <div class="flex-1 overflow-y-auto pb-20 custom-scrollbar">
                     <div class="flex flex-wrap gap-8 justify-center items-center min-h-[50vh]">
+                        
+                        <!-- Foundation / Bypass Card (For Configured Admins only) -->
+                        ${state.user.isStaff ? `
+                             <button onclick="actions.enterAsFoundation()" class="glass-card group w-full md:w-[340px] h-[380px] rounded-[30px] flex flex-col items-center justify-center relative overflow-hidden hover:border-amber-400/50 transition-all cursor-pointer">
+                                <div class="absolute inset-0 bg-amber-500/5 group-hover:bg-amber-500/10 transition-colors"></div>
+                                <div class="w-20 h-20 rounded-2xl badge-foundation flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(234,179,8,0.3)] animate-pulse-slow">
+                                    <i data-lucide="eye" class="w-10 h-10"></i>
+                                </div>
+                                <h3 class="text-2xl font-bold text-amber-400 mb-2">Accès Fondation</h3>
+                                <p class="text-gray-400 text-xs uppercase tracking-widest mb-6">Contournement de Sécurité</p>
+                                <div class="glass-btn-secondary bg-amber-500/10 border-amber-500/30 text-amber-300 px-6 py-2 rounded-xl text-xs font-bold uppercase">
+                                    Entrer Immédiatement
+                                </div>
+                            </button>
+                        ` : ''}
+
                         ${charsHtml}
                         
                         <!-- Create New Button -->
@@ -270,7 +311,7 @@ const Views = {
                     </button>
 
                     ${state.user.isStaff ? `
-                    <button onclick="actions.setHubPanel('staff')" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden border-purple-500/20 cursor-pointer">
+                    <button onclick="actions.loadStaffPanel()" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden border-purple-500/20 cursor-pointer">
                         <div class="absolute inset-0 bg-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                         <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 mb-4 group-hover:bg-purple-500 group-hover:text-white transition-all shadow-[0_0_20px_rgba(168,85,247,0.3)]">
                             <i data-lucide="shield-alert" class="w-6 h-6"></i>
@@ -278,6 +319,7 @@ const Views = {
                         <div class="relative z-10">
                             <h3 class="text-xl font-bold text-white">Administration</h3>
                             <p class="text-sm text-gray-400 mt-1">Gestion Joueurs & Whitelist</p>
+                            ${state.pendingApplications.length > 0 ? `<div class="absolute top-0 right-0 mt-6 mr-6 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>` : ''}
                         </div>
                     </button>
                     ` : ''}
@@ -288,7 +330,8 @@ const Views = {
                  actions.setHubPanel('main');
                  return '';
             }
-            const pending = state.characters.filter(c => c.status === 'pending');
+            const pending = state.pendingApplications || [];
+            
             content = `
                 <div class="animate-fade-in max-w-4xl mx-auto">
                     <div class="flex justify-between items-center mb-6">
@@ -297,17 +340,24 @@ const Views = {
                     </div>
                     
                     <div class="space-y-4">
-                        ${pending.length === 0 ? `<div class="p-8 text-center text-gray-500 bg-white/5 rounded-xl border border-dashed border-white/10">Aucune demande.</div>` : ''}
+                        ${pending.length === 0 ? `<div class="p-8 text-center text-gray-500 bg-white/5 rounded-xl border border-dashed border-white/10">Aucune demande en attente.</div>` : ''}
                         
                         ${pending.map(p => `
                             <div class="glass-card p-4 rounded-xl flex items-center justify-between">
                                 <div class="flex items-center gap-4">
-                                    <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center font-bold text-gray-400">
-                                        ${p.first_name[0]}
+                                    <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center font-bold text-gray-400 border border-white/10 overflow-hidden">
+                                        ${p.discord_avatar ? `<img src="${p.discord_avatar}" class="w-full h-full object-cover">` : p.first_name[0]}
                                     </div>
                                     <div>
                                         <div class="font-bold text-white">${p.first_name} ${p.last_name}</div>
-                                        <div class="text-xs text-gray-400">${p.age} ans • ${p.birth_place}</div>
+                                        <div class="text-xs text-gray-400 flex items-center gap-2">
+                                            <i data-lucide="user" class="w-3 h-3"></i> 
+                                            <span class="text-blue-300">${p.discord_username || 'Inconnu'}</span>
+                                            <span class="text-gray-600">•</span>
+                                            <span>${p.age} ans</span>
+                                            <span class="text-gray-600">•</span>
+                                            <span>${p.birth_place}</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="flex gap-2">
@@ -380,9 +430,9 @@ const Views = {
                         </h1>
                         <div class="flex items-center gap-4">
                             ${state.user.isStaff ? `
-                                <div class="bg-purple-500/20 px-3 py-1 rounded-full border border-purple-500/30 flex items-center gap-2">
-                                    <i data-lucide="shield" class="w-3 h-3 text-purple-400"></i>
-                                    <span class="text-xs font-bold text-purple-200">ADMINISTRATEUR</span>
+                                <div class="badge-foundation px-3 py-1 rounded-full border flex items-center gap-2 shadow-lg">
+                                    <i data-lucide="eye" class="w-3 h-3"></i>
+                                    <span class="text-xs font-bold">FONDATION</span>
                                 </div>
                             `: ''}
                             <div class="bg-black/40 px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
@@ -404,9 +454,11 @@ const Views = {
 // --- Initialization ---
 const initApp = async () => {
     const appEl = document.getElementById('app');
+    const loadingScreen = document.getElementById('loading-screen');
+    
     if (!appEl) return;
 
-    // Init Supabase
+    // Init Supabase Client
     if (window.supabase) {
         state.supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
     } else {
@@ -414,93 +466,92 @@ const initApp = async () => {
         return;
     }
 
-    // 1. Check for active session from Supabase
-    const { data: { session }, error } = await state.supabase.auth.getSession();
-    
-    if (session) {
-        state.session = session;
-        await handleAuthenticatedUser(session);
+    // Check for Discord Callback in URL Hash
+    const fragment = new URLSearchParams(window.location.hash.slice(1));
+    const accessToken = fragment.get('access_token');
+    const tokenType = fragment.get('token_type');
+
+    if (accessToken) {
+        // Clear hash to clean URL
+        window.history.replaceState(null, null, ' ');
+        state.accessToken = accessToken;
+        await handleDiscordCallback(accessToken, tokenType);
     } else {
+        // No session, show login
         state.currentView = 'login';
         render();
-        // Fade in
-        requestAnimationFrame(() => appEl.classList.remove('opacity-0'));
+        // Hide loader immediately for login
+        setTimeout(() => {
+            if(loadingScreen) loadingScreen.style.opacity = '0';
+            appEl.classList.remove('opacity-0');
+            setTimeout(() => loadingScreen?.remove(), 700);
+        }, 800);
     }
 };
 
-const handleAuthenticatedUser = async (session) => {
+const handleDiscordCallback = async (token, type) => {
     const appEl = document.getElementById('app');
+    const loadingScreen = document.getElementById('loading-screen');
     
     try {
-        const discordUser = session.user.user_metadata;
-        const providerToken = session.provider_token;
+        // 1. Fetch User Data from Discord
+        const userRes = await fetch('https://discord.com/api/users/@me', {
+            headers: { Authorization: `${type} ${token}` }
+        });
+        
+        if (!userRes.ok) throw new Error('Discord User Fetch Failed');
+        const discordUser = await userRes.json();
 
-        // 2. Guild Gate Check (Requires provider token)
-        if (providerToken) {
-            try {
-                const guildsRes = await fetch('https://discord.com/api/users/@me/guilds', {
-                    headers: { Authorization: `Bearer ${providerToken}` }
-                });
-                
-                if (guildsRes.ok) {
-                    const guilds = await guildsRes.json();
-                    const isMember = guilds.some(g => g.id === CONFIG.REQUIRED_GUILD_ID);
-                    
-                    if (!isMember) {
-                        state.currentView = 'access_denied';
-                        render();
-                        appEl.classList.remove('opacity-0');
-                        // Optional: Sign out immediately so they can try again easily
-                        // await state.supabase.auth.signOut(); 
-                        return;
-                    }
-                } else {
-                    console.warn("Could not verify guilds, proceeding with caution (Token expired?)");
-                }
-            } catch (err) {
-                console.error("Guild check error", err);
-            }
+        // 2. Fetch Guilds to verify server membership
+        const guildsRes = await fetch('https://discord.com/api/users/@me/guilds', {
+             headers: { Authorization: `${type} ${token}` }
+        });
+        
+        if (!guildsRes.ok) throw new Error('Discord Guilds Fetch Failed');
+        const guilds = await guildsRes.json();
+        
+        const isMember = guilds.some(g => g.id === CONFIG.REQUIRED_GUILD_ID);
+
+        if (!isMember) {
+            state.currentView = 'access_denied';
+            render();
+            // Transition Loader
+            if(loadingScreen) loadingScreen.style.opacity = '0';
+            appEl.classList.remove('opacity-0');
+            setTimeout(() => loadingScreen?.remove(), 700);
+            return;
         }
 
-        // 3. Setup User State
-        const discordId = discordUser.provider_id || discordUser.sub; // sub is usually the ID in Supabase
-        
-        // Check Hardcoded Admin IDs
-        let isStaff = CONFIG.ADMIN_IDS.includes(discordId);
+        // 3. Admin Check (Hardcoded IDs + DB check)
+        let isStaff = CONFIG.ADMIN_IDS.includes(discordUser.id);
 
-        // Sync Profile in DB
+        // 4. Sync Profile with Supabase (Upsert)
         const updates = {
-            id: session.user.id, // Links to auth.users
-            username: discordUser.full_name || discordUser.name,
-            avatar_url: discordUser.avatar_url,
+            id: discordUser.id, // Using Discord ID as Key
+            username: discordUser.username,
+            avatar_url: `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`,
             updated_at: new Date(),
         };
 
-        // Try to fetch existing profile to get DB 'is_staff' status which might override hardcode
-        let { data: profile, error: profileError } = await state.supabase
+        // Attempt Upsert
+        await state.supabase.from('profiles').upsert(updates);
+        
+        // Also check DB for staff status
+        const { data: profile } = await state.supabase
             .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
+            .select('is_staff')
+            .eq('id', discordUser.id)
             .single();
 
-        if (profile) {
-            if (profile.is_staff) isStaff = true; // DB says staff
-        } else {
-            // Create profile if not exists
-            const { error: upsertError } = await state.supabase.from('profiles').upsert(updates);
-            if (upsertError) console.error("Profile creation failed:", upsertError);
-            
-            // If hardcoded staff, update DB to reflect it
-            if (isStaff) {
-                 await state.supabase.from('profiles').update({ is_staff: true }).eq('id', session.user.id);
-            }
+        if (profile && profile.is_staff) {
+            isStaff = true;
         }
 
+        // Set App State
         state.user = {
-            id: session.user.id, // Use Supabase Auth ID for DB relations
-            discord_id: discordId,
-            username: discordUser.full_name || discordUser.name,
-            avatar: discordUser.avatar_url,
+            id: discordUser.id,
+            username: discordUser.global_name || discordUser.username,
+            avatar: `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`,
             isStaff: isStaff
         };
 
@@ -508,12 +559,15 @@ const handleAuthenticatedUser = async (session) => {
         router(state.characters.length > 0 ? 'select' : 'create');
 
     } catch (e) {
-        console.error("Auth flow error:", e);
+        console.error("Auth Error:", e);
         state.currentView = 'login';
         render();
     }
     
+    // Transition Loader out
+    if(loadingScreen) loadingScreen.style.opacity = '0';
     appEl.classList.remove('opacity-0');
+    setTimeout(() => loadingScreen?.remove(), 700);
 };
 
 // --- Routing ---
@@ -548,7 +602,7 @@ const render = () => {
 const loadCharacters = async () => {
     if (!state.user || !state.supabase) return;
     
-    // Fetch characters linked to auth.uid()
+    // Fetch characters where user_id matches the Discord ID
     const { data, error } = await state.supabase
         .from('characters')
         .select('*')
@@ -557,8 +611,58 @@ const loadCharacters = async () => {
     if (!error && data) {
         state.characters = data;
     } else {
+        console.error("Fetch chars error:", error);
         state.characters = [];
     }
+};
+
+// Fetch Pending Applications AND Join with Discord Profile info
+const fetchPendingApplications = async () => {
+    if (!state.user || !state.supabase) return;
+
+    // 1. Get Pending Characters
+    const { data: chars, error: charError } = await state.supabase
+        .from('characters')
+        .select('*')
+        .eq('status', 'pending');
+    
+    if (charError || !chars) {
+        state.pendingApplications = [];
+        return;
+    }
+
+    // 2. Get the unique user IDs from these characters
+    const userIds = [...new Set(chars.map(c => c.user_id))];
+
+    if (userIds.length === 0) {
+        state.pendingApplications = [];
+        return;
+    }
+
+    // 3. Fetch profiles matching these IDs
+    const { data: profiles, error: profileError } = await state.supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', userIds);
+
+    if (profileError) {
+        console.warn("Could not fetch profiles for apps", profileError);
+        // Fallback: show chars without extra info
+        state.pendingApplications = chars;
+        return;
+    }
+
+    // 4. Merge Data manually
+    const enrichedApps = chars.map(char => {
+        const profile = profiles.find(p => p.id === char.user_id);
+        return {
+            ...char,
+            discord_username: profile ? profile.username : 'Unknown',
+            discord_avatar: profile ? profile.avatar_url : null
+        };
+    });
+
+    state.pendingApplications = enrichedApps;
 };
 
 const createCharacter = async (formData) => {
@@ -574,7 +678,7 @@ const createCharacter = async (formData) => {
         birth_place: formData.birth_place,
         age: calculateAge(formData.birth_date),
         status: 'pending',
-        user_id: state.user.id // This matches auth.users.id
+        user_id: state.user.id // Discord ID
     };
 
     const { data, error } = await state.supabase
@@ -584,13 +688,30 @@ const createCharacter = async (formData) => {
 
     if (error) {
         console.error("Save failed:", error);
-        alert("Erreur lors de la sauvegarde: " + error.message);
+        alert("Erreur lors de la sauvegarde. Vérifiez que la base de données accepte l'ID Discord (Texte) et non UUID.");
         return;
     }
     
     await loadCharacters();
     router('select');
 };
+
+const deleteCharacter = async (charId) => {
+    if(!confirm("Êtes-vous sûr de vouloir supprimer ce personnage ? Cette action est irréversible.")) return;
+
+    const { error } = await state.supabase
+        .from('characters')
+        .delete()
+        .eq('id', charId)
+        .eq('user_id', state.user.id); // Security check
+
+    if (!error) {
+        await loadCharacters();
+        router('select');
+    } else {
+        alert("Erreur lors de la suppression: " + error.message);
+    }
+}
 
 const calculateAge = (dateString) => {
     const today = new Date();
@@ -606,22 +727,17 @@ const calculateAge = (dateString) => {
 // --- Actions ---
 window.actions = {
     login: async () => {
-        // Use Supabase OAuth - REQUIRED for the SQL relations (auth.users)
-        const { data, error } = await state.supabase.auth.signInWithOAuth({
-            provider: 'discord',
-            options: {
-                redirectTo: CONFIG.REDIRECT_URI,
-                scopes: 'guilds identify' // Ask for guilds to perform check
-            }
-        });
-        if (error) console.error("Login failed:", error);
+        // Manual Discord OAuth Flow
+        const scope = encodeURIComponent('identify guilds');
+        const url = `https://discord.com/api/oauth2/authorize?client_id=${CONFIG.DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(CONFIG.REDIRECT_URI)}&response_type=token&scope=${scope}`;
+        window.location.href = url;
     },
     
     logout: async () => {
-        await state.supabase.auth.signOut();
         state.user = null;
-        state.session = null;
+        state.accessToken = null;
         state.characters = [];
+        window.location.hash = '';
         router('login');
     },
 
@@ -632,6 +748,19 @@ window.actions = {
             state.activeCharacter = char;
             router('hub');
         }
+    },
+
+    enterAsFoundation: () => {
+        if (!state.user.isStaff) return;
+        // Mock Character for Foundation Access
+        state.activeCharacter = {
+            first_name: 'La',
+            last_name: 'Fondation',
+            age: 99,
+            birth_place: 'Classified',
+            status: 'accepted'
+        };
+        router('hub');
     },
 
     goToCreate: () => {
@@ -652,8 +781,19 @@ window.actions = {
         createCharacter(data);
     },
 
+    deleteCharacter: (id) => {
+        deleteCharacter(id);
+    },
+
     setHubPanel: (panel) => {
         state.activeHubPanel = panel;
+        render();
+    },
+
+    loadStaffPanel: async () => {
+        state.activeHubPanel = 'staff';
+        // Show loading state implicitly or explicit loader
+        await fetchPendingApplications();
         render();
     },
     
@@ -670,7 +810,9 @@ window.actions = {
             .eq('id', id);
 
         if (!error) {
-            await loadCharacters(); // Reload to see changes
+            // Refresh list immediately
+            await fetchPendingApplications();
+            render(); 
         } else {
             alert("Erreur update: " + error.message);
         }
