@@ -9,7 +9,9 @@ const CONFIG = {
     SUPABASE_URL: 'https://nitlrwmgoddqabasavrg.supabase.co',
     SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pdGxyd21nb2RkcWFiYXNhdnJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3Mzg3NTIsImV4cCI6MjA3OTMxNDc1Mn0.Y5BFeTuv-dxLpf9ocqyhaWMLLCwlKf-bPDgpWq0o8oU',
     APP_NAME: 'TFRP',
-    VERSION: '2.0.0 (Glass)'
+    VERSION: '2.1.0 (ERLC Edition)',
+    DISCORD_CLIENT_ID: '1442491338552512584', // ID Client Discord
+    REDIRECT_URI: 'https://x-bananous.github.io/teamfrenchroleplay/'
 };
 
 // --- Global State ---
@@ -32,7 +34,9 @@ const initApp = async () => {
         console.warn('Supabase SDK not loaded. Running in full Mock mode.');
     }
 
-    // Load initial view
+    // Check for Discord Callback (OAuth2 Implicit Flow or Code Flow)
+    handleDiscordCallback();
+
     const appEl = document.getElementById('app');
     
     // Check Auth State
@@ -51,6 +55,35 @@ const initApp = async () => {
     requestAnimationFrame(() => {
         appEl.classList.remove('opacity-0');
     });
+};
+
+const handleDiscordCallback = () => {
+    // Check URL parameters for access_token (Implicit) or code (Authorization Code)
+    // Since this is static without backend, we simulate login if we see parameters return from Discord
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+
+    const code = urlParams.get('code');
+    const accessToken = hashParams.get('access_token');
+
+    if (code || accessToken) {
+        // In a real app with backend, we would exchange 'code' for token.
+        // Here, we assume success because the user came back from Discord.
+        
+        // Create User Session
+        const newUser = {
+            id: 'discord_user_' + Math.floor(Math.random() * 10000),
+            username: 'Citoyen TFRP', // In real app, fetch from https://discord.com/api/users/@me
+            avatar: 'https://cdn.discordapp.com/embed/avatars/0.png',
+            isStaff: false 
+        };
+
+        state.user = newUser;
+        localStorage.setItem('tfrp_user', JSON.stringify(newUser));
+        
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
 };
 
 // --- Routing ---
@@ -96,22 +129,12 @@ const useMockCharacters = () => {
         state.characters = [
             {
                 id: 'char_mock_1',
-                first_name: 'Tommy',
-                last_name: 'Angelo',
-                birth_date: '1985-04-12',
-                birth_place: 'Lost Heaven',
-                age: 38,
+                first_name: 'Hugo',
+                last_name: 'Bernard',
+                birth_date: '1995-04-12',
+                birth_place: 'Los Angeles',
+                age: 28,
                 status: 'accepted',
-                user_id: state.user.id
-            },
-            {
-                id: 'char_mock_2',
-                first_name: 'Vito',
-                last_name: 'Scaletta',
-                birth_date: '1990-08-25',
-                birth_place: 'Empire Bay',
-                age: 33,
-                status: 'pending',
                 user_id: state.user.id
             }
         ];
@@ -155,16 +178,14 @@ const calculateAge = (dateString) => {
 
 // --- Actions ---
 window.actions = {
-    login: (type) => {
-        // Simulating Auth
-        state.user = {
-            id: 'user_dev_001',
-            username: type === 'discord' ? 'DiscordUser' : 'DevAdmin',
-            avatar: 'https://ui-avatars.com/api/?name=User&background=0A84FF&color=fff',
-            isStaff: true // Force staff for demo
-        };
-        localStorage.setItem('tfrp_user', JSON.stringify(state.user));
-        loadCharacters().then(() => router('select'));
+    login: () => {
+        // Redirection vers Discord
+        // On utilise response_type=token pour l'exemple client-side (ou code si backend)
+        const scope = encodeURIComponent('identify email');
+        const redirect = encodeURIComponent(CONFIG.REDIRECT_URI);
+        const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${CONFIG.DISCORD_CLIENT_ID}&redirect_uri=${redirect}&response_type=token&scope=${scope}`;
+        
+        window.location.href = discordAuthUrl;
     },
     
     logout: () => {
@@ -191,8 +212,8 @@ window.actions = {
         e.preventDefault();
         const data = Object.fromEntries(new FormData(e.target));
         
-        if (calculateAge(data.birth_date) < 18) {
-            alert('Votre personnage doit être majeur (18+).');
+        if (calculateAge(data.birth_date) < 13) {
+            alert('Votre personnage doit avoir au moins 13 ans pour le RP.');
             return;
         }
         createCharacter(data);
@@ -261,31 +282,23 @@ const Views = {
             <div class="glass-panel w-full max-w-md p-10 rounded-[40px] flex flex-col items-center text-center relative z-10">
                 
                 <div class="mb-8 relative">
-                    <div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-2xl shadow-blue-500/30 mb-4 mx-auto">
-                        <i data-lucide="gem" class="w-10 h-10 text-white"></i>
+                    <div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-2xl shadow-blue-500/30 mb-4 mx-auto">
+                        <i data-lucide="shield-check" class="w-10 h-10 text-white"></i>
                     </div>
                     <h1 class="text-4xl font-bold tracking-tight text-white mb-2 text-glow">TFRP</h1>
                     <p class="text-blue-300/80 text-sm font-medium tracking-widest uppercase">Team French RolePlay</p>
+                    <p class="text-gray-500 text-xs mt-2 font-mono">Los Angeles • ERLC Roblox</p>
                 </div>
 
                 <div class="w-full space-y-4">
-                    <button onclick="actions.login('discord')" class="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white p-4 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all hover:scale-[1.02] shadow-lg shadow-[#5865F2]/30">
+                    <button onclick="actions.login()" class="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white p-4 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all hover:scale-[1.02] shadow-lg shadow-[#5865F2]/30">
                         <i data-lucide="gamepad-2" class="w-5 h-5"></i>
-                        Connexion Discord
-                    </button>
-                    
-                    <div class="relative py-2">
-                        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-white/10"></div></div>
-                        <div class="relative flex justify-center"><span class="bg-[#242426] px-3 text-xs text-gray-500 rounded-full">DEV MODE</span></div>
-                    </div>
-
-                    <button onclick="actions.login('dev')" class="glass-btn-secondary w-full p-3 rounded-2xl text-sm font-medium text-gray-400 hover:text-white flex items-center justify-center gap-2">
-                        <i data-lucide="code" class="w-4 h-4"></i> Accès Rapide
+                        Connexion via Discord
                     </button>
                 </div>
 
                 <p class="mt-8 text-[10px] text-gray-600 max-w-[200px]">
-                    En vous connectant, vous acceptez le règlement intérieur et les CGU de la communauté.
+                    Connexion obligatoire pour accéder aux services du serveur.
                 </p>
             </div>
         </div>
@@ -323,15 +336,15 @@ const Views = {
                             <span class="text-gray-300">${char.age} Ans</span>
                         </div>
                         <div class="flex justify-between text-xs text-gray-500 uppercase tracking-wider font-semibold px-1 border-t border-white/5 pt-3">
-                            <span>Métier</span>
-                            <span class="text-gray-300">Chômeur</span>
+                            <span>Statut</span>
+                            <span class="text-gray-300">Civil</span>
                         </div>
                     </div>
 
                     <div class="mt-6">
                         ${isAccepted ? 
                             `<button onclick="actions.selectCharacter('${char.id}')" class="glass-btn w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                                <i data-lucide="play" class="w-4 h-4 fill-current"></i> Jouer
+                                <i data-lucide="play" class="w-4 h-4 fill-current"></i> Accéder au Hub
                              </button>` : 
                             `<button disabled class="w-full py-3 rounded-xl bg-white/5 text-gray-500 text-sm font-semibold cursor-not-allowed border border-white/5">
                                 Dossier en cours
@@ -346,8 +359,8 @@ const Views = {
             <div class="flex-1 flex flex-col p-8 animate-fade-in overflow-hidden relative">
                 <div class="flex justify-between items-center mb-10 z-10 px-4">
                     <div>
-                        <h2 class="text-3xl font-bold text-white tracking-tight">Mes Personnages</h2>
-                        <p class="text-gray-400 text-sm mt-1">Sélectionnez une identité pour rejoindre Los Santos.</p>
+                        <h2 class="text-3xl font-bold text-white tracking-tight">Mes Citoyens</h2>
+                        <p class="text-gray-400 text-sm mt-1">Gérez vos identités pour le serveur Roblox ERLC.</p>
                     </div>
                     <button onclick="actions.logout()" class="glass-btn-secondary p-3 rounded-full hover:bg-red-500/20 hover:text-red-400 transition-colors">
                         <i data-lucide="log-out" class="w-5 h-5"></i>
@@ -364,7 +377,7 @@ const Views = {
                                 <div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-blue-500/20 transition-all">
                                     <i data-lucide="plus" class="w-8 h-8 text-gray-400 group-hover:text-blue-400"></i>
                                 </div>
-                                <span class="text-gray-300 font-semibold group-hover:text-white">Créer un personnage</span>
+                                <span class="text-gray-300 font-semibold group-hover:text-white">Créer un citoyen</span>
                                 <span class="text-xs text-gray-600 mt-1 uppercase tracking-widest">Slot Disponible</span>
                             </button>
                         ` : ''}
@@ -380,7 +393,7 @@ const Views = {
                 <div class="flex justify-between items-center mb-8 border-b border-white/10 pb-6">
                     <div>
                         <h2 class="text-2xl font-bold text-white">Nouveau Citoyen</h2>
-                        <p class="text-gray-400 text-xs uppercase tracking-widest mt-1">Formulaire d'immigration</p>
+                        <p class="text-gray-400 text-xs uppercase tracking-widest mt-1">Formulaire d'immigration Los Angeles</p>
                     </div>
                     <button onclick="actions.cancelCreate()" class="glass-btn-secondary p-2 rounded-lg hover:bg-white/10">
                         <i data-lucide="x" class="w-5 h-5"></i>
@@ -390,11 +403,11 @@ const Views = {
                 <form onsubmit="actions.submitCharacter(event)" class="space-y-6">
                     <div class="grid grid-cols-2 gap-6">
                         <div class="space-y-2">
-                            <label class="text-xs font-bold text-gray-500 uppercase ml-1">Prénom</label>
+                            <label class="text-xs font-bold text-gray-500 uppercase ml-1">Prénom RP</label>
                             <input type="text" name="first_name" required placeholder="John" class="glass-input w-full p-3 rounded-xl">
                         </div>
                         <div class="space-y-2">
-                            <label class="text-xs font-bold text-gray-500 uppercase ml-1">Nom</label>
+                            <label class="text-xs font-bold text-gray-500 uppercase ml-1">Nom RP</label>
                             <input type="text" name="last_name" required placeholder="Doe" class="glass-input w-full p-3 rounded-xl">
                         </div>
                     </div>
@@ -406,20 +419,20 @@ const Views = {
                         </div>
                         <div class="space-y-2">
                             <label class="text-xs font-bold text-gray-500 uppercase ml-1">Lieu de naissance</label>
-                            <input type="text" name="birth_place" required placeholder="Los Santos Hospital" class="glass-input w-full p-3 rounded-xl">
+                            <input type="text" name="birth_place" required value="Los Angeles" placeholder="Los Angeles" class="glass-input w-full p-3 rounded-xl">
                         </div>
                     </div>
 
                     <div class="bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl flex gap-3 items-start">
                         <i data-lucide="info" class="w-5 h-5 text-blue-400 shrink-0 mt-0.5"></i>
                         <p class="text-xs text-blue-100/80 leading-relaxed">
-                            Vérifiez l'exactitude de vos informations. Le nom et le prénom ne pourront plus être modifiés après validation par le gouvernement (Staff).
+                            Respectez le Lore Realistic RP d'ERLC. Pas de noms troll ou célébrités.
                         </p>
                     </div>
 
                     <div class="pt-4 flex justify-end">
                         <button type="submit" class="glass-btn px-8 py-3 rounded-xl font-semibold flex items-center gap-2">
-                            <i data-lucide="send" class="w-4 h-4"></i> Soumettre le dossier
+                            <i data-lucide="send" class="w-4 h-4"></i> Créer le personnage
                         </button>
                     </div>
                 </form>
@@ -438,11 +451,11 @@ const Views = {
                     <button onclick="actions.setHubPanel('services')" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden">
                         <div class="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                         <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400 mb-4 group-hover:bg-blue-500 group-hover:text-white transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)]">
-                            <i data-lucide="briefcase" class="w-6 h-6"></i>
+                            <i data-lucide="siren" class="w-6 h-6"></i>
                         </div>
                         <div class="relative z-10">
-                            <h3 class="text-xl font-bold text-white">Services Publics</h3>
-                            <p class="text-sm text-gray-400 mt-1">LSPD, EMS, Gouvernement</p>
+                            <h3 class="text-xl font-bold text-white">Urgence & Services</h3>
+                            <p class="text-sm text-gray-400 mt-1">Police, Sheriff, Fire & DOT</p>
                         </div>
                     </button>
 
@@ -452,8 +465,8 @@ const Views = {
                             <i data-lucide="skull" class="w-6 h-6"></i>
                         </div>
                         <div class="relative z-10">
-                            <h3 class="text-xl font-bold text-white">Illégal</h3>
-                            <p class="text-sm text-gray-400 mt-1">Darknet, Gangs, Marché Noir</p>
+                            <h3 class="text-xl font-bold text-white">Monde Criminel</h3>
+                            <p class="text-sm text-gray-400 mt-1">Mafias, Gangs & Marché Noir</p>
                         </div>
                     </button>
 
@@ -465,7 +478,7 @@ const Views = {
                         </div>
                         <div class="relative z-10">
                             <h3 class="text-xl font-bold text-white">Administration</h3>
-                            <p class="text-sm text-gray-400 mt-1">Gestion Joueurs & Tickets</p>
+                            <p class="text-sm text-gray-400 mt-1">Gestion Joueurs & Whitelist</p>
                         </div>
                     </button>
                     ` : ''}
@@ -510,7 +523,7 @@ const Views = {
                         <i data-lucide="cone" class="w-10 h-10 text-gray-400"></i>
                     </div>
                     <h2 class="text-2xl font-bold text-white mb-2">En Développement</h2>
-                    <p class="text-gray-400 max-w-md">Le module <span class="text-blue-400 capitalize">${state.activeHubPanel}</span> est en cours de construction par l'équipe technique.</p>
+                    <p class="text-gray-400 max-w-md">Le module <span class="text-blue-400 capitalize">${state.activeHubPanel}</span> est en cours de construction pour TFRP ERLC.</p>
                 </div>
             `;
         }
@@ -539,13 +552,13 @@ const Views = {
                     <div class="mt-auto p-4 border-t border-white/5 bg-black/20">
                          <div class="bg-gray-800/50 rounded-lg p-3 mb-4 border border-white/5">
                             <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs text-gray-400 font-medium">État Serveur</span>
+                                <span class="text-xs text-gray-400 font-medium">Serveur ERLC</span>
                                 <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
                             </div>
                             <div class="w-full bg-gray-700 h-1 rounded-full overflow-hidden">
                                 <div class="bg-blue-500 h-full w-[45%]"></div>
                             </div>
-                            <div class="text-[10px] text-gray-500 mt-1 text-right">45 / 100 Joueurs</div>
+                            <div class="text-[10px] text-gray-500 mt-1 text-right">45 / 45 Joueurs</div>
                          </div>
                          <button onclick="actions.logout()" class="w-full glass-btn-secondary py-2 rounded-lg text-xs text-red-300 hover:bg-red-900/20 border-red-500/10">Déconnexion</button>
                     </div>
@@ -553,16 +566,15 @@ const Views = {
 
                 <!-- Content -->
                 <main class="flex-1 flex flex-col relative overflow-hidden">
-                    <div class="absolute inset-0 bg-gradient-to-br from-blue-900/5 to-purple-900/5 pointer-events-none"></div>
                     
                     <header class="h-20 flex items-center justify-between px-8 border-b border-white/5 bg-black/20 backdrop-blur-md z-10">
                         <h1 class="text-xl font-bold text-white capitalize">
-                            ${state.activeHubPanel === 'main' ? 'Los Santos' : state.activeHubPanel}
+                            ${state.activeHubPanel === 'main' ? 'Los Angeles' : state.activeHubPanel}
                         </h1>
                         <div class="flex items-center gap-4">
                             <div class="bg-black/40 px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
                                 <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                <span class="text-xs font-mono text-gray-300">14:02 PM</span>
+                                <span class="text-xs font-mono text-gray-300">En Ligne</span>
                             </div>
                         </div>
                     </header>
