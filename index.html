@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="dark">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TFRP : Team French RolePlay</title>
     
-    <!-- Fonts -->
+    <!-- Fonts: Inter & SF Pro Display simulation -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -13,63 +13,63 @@
     <!-- Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Tailwind (Utility classes pour layout rapide) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+            },
             colors: {
+              glass: {
+                DEFAULT: 'rgba(30, 30, 35, 0.65)',
+                border: 'rgba(255, 255, 255, 0.08)',
+                highlight: 'rgba(255, 255, 255, 0.05)',
+              },
               apple: {
-                dark: '#000000',
-                gray: '#1c1c1e',
                 blue: '#0A84FF',
                 indigo: '#5E5CE6',
-                glass: 'rgba(30, 30, 30, 0.65)',
-                glassBorder: 'rgba(255, 255, 255, 0.1)',
+                gray: '#1C1C1E',
               }
             },
-            fontFamily: {
-              sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            backgroundImage: {
+              'aurora': 'linear-gradient(125deg, #000000 0%, #1a1a2e 50%, #000000 100%)',
             }
           }
         }
       }
     </script>
     
-    <!-- Custom Styles (Glassmorphism) -->
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
+
+    <!-- Supabase SDK via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script type="importmap">
 {
   "imports": {
-    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.86.2",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1",
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/"
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.86.2"
   }
 }
 </script>
 </head>
-<body class="bg-black text-white overflow-hidden antialiased selection:bg-apple-blue selection:text-white">
+<body class="bg-black text-white overflow-hidden antialiased selection:bg-apple-blue selection:text-white h-screen w-screen">
     
-    <!-- Dynamic App Container -->
-    <div id="app" class="h-screen w-full relative">
-        <!-- Background Elements (Abstract Aura) -->
-        <div class="fixed inset-0 z-0 pointer-events-none">
-             <div class="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-900/20 rounded-full blur-[120px] opacity-60"></div>
-             <div class="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-purple-900/20 rounded-full blur-[120px] opacity-60"></div>
-        </div>
-
-        <!-- Main View Container -->
-        <div id="view-container" class="relative z-10 h-full w-full flex flex-col">
-            <!-- Content injected by JS -->
-        </div>
+    <!-- Background Aura -->
+    <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-900/10 rounded-full blur-[150px] animate-pulse-slow"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-900/10 rounded-full blur-[150px] animate-pulse-slow" style="animation-delay: 2s;"></div>
     </div>
 
-    <!-- Application Logic -->
-    <script type="module" src="app.js"></script>
+    <!-- Main App Container -->
+    <div id="app" class="relative z-10 h-full w-full flex flex-col transition-opacity duration-500 opacity-0">
+        <!-- Views will be injected here by app.js -->
+    </div>
+
+    <!-- App Logic -->
+    <script src="app.js"></script>
 </body>
 </html>

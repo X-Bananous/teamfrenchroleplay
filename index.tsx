@@ -1,2 +1,3 @@
-// Ce fichier est obsolète. L'application a été migrée vers Vanilla JS.
-// Voir index.html et app.js
+// FICHIER OBSOLÈTE
+// L'application a été entièrement migrée vers Vanilla JS (index.html + app.js)
+// Ce fichier peut être supprimé.
