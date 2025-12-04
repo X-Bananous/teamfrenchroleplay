@@ -32,6 +32,7 @@ const state = {
     accessToken: null,
     characters: [],
     pendingApplications: [], // Liste pour le staff
+    allCharactersAdmin: [], // Liste complète pour le staff
     activeCharacter: null,
     currentView: 'login', // login, select, create, hub, access_denied
     activeHubPanel: 'main',
@@ -42,30 +43,65 @@ const state = {
 // --- View Templates (Components) ---
 const Views = {
     Login: () => `
-        <div class="flex-1 flex items-center justify-center p-6 animate-fade-in relative overflow-hidden h-full">
-            <!-- Glass Container -->
-            <div class="glass-panel w-full max-w-md p-10 rounded-[40px] flex flex-col items-center text-center relative z-10">
-                
-                <div class="mb-8 relative">
-                    <div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-2xl shadow-blue-500/30 mb-4 mx-auto">
-                        <i data-lucide="shield-check" class="w-10 h-10 text-white"></i>
+        <div class="flex-1 flex flex-col relative overflow-hidden h-full w-full">
+            <div class="landing-gradient-bg"></div>
+            
+            <!-- Navbar -->
+            <nav class="relative z-10 w-full p-8 flex justify-between items-center animate-fade-in">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <i data-lucide="shield-check" class="w-5 h-5 text-white"></i>
                     </div>
-                    <h1 class="text-4xl font-bold tracking-tight text-white mb-2 text-glow">TFRP</h1>
-                    <p class="text-blue-300/80 text-sm font-medium tracking-widest uppercase">Team French RolePlay</p>
-                    <p class="text-gray-500 text-xs mt-2 font-mono">Los Angeles • ERLC Roblox</p>
+                    <span class="font-bold text-xl tracking-tight">TFRP</span>
                 </div>
+                <a href="${CONFIG.INVITE_URL}" target="_blank" class="glass-btn-secondary px-5 py-2.5 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition-all cursor-pointer">
+                    <i data-lucide="users" class="w-4 h-4"></i>
+                    Rejoindre Discord
+                </a>
+            </nav>
 
-                <div class="w-full space-y-4">
-                    <button onclick="actions.login()" class="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white p-4 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all hover:scale-[1.02] shadow-lg shadow-[#5865F2]/30 cursor-pointer">
-                        <i data-lucide="gamepad-2" class="w-5 h-5"></i>
-                        Connexion via Discord
-                    </button>
+            <!-- Hero Section -->
+            <div class="flex-1 flex flex-col items-center justify-center text-center px-6 relative z-10 animate-slide-up">
+                <div class="mb-6 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 backdrop-blur-md inline-flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <span class="text-xs font-medium text-gray-300 tracking-wide uppercase">Serveur Ouvert • ERLC Roblox</span>
                 </div>
-
-                <p class="mt-8 text-[10px] text-gray-600 max-w-[200px]">
-                    Connexion sécurisée via Discord.
-                    Vérification de présence serveur requise.
+                
+                <h1 class="landing-hero-text mb-6">
+                    Team French<br>RolePlay
+                </h1>
+                
+                <p class="text-lg md:text-xl text-gray-400 max-w-2xl mb-10 leading-relaxed">
+                    L'expérience de jeu de rôle ultime à Los Angeles. <br class="hidden md:block">
+                    Rejoignez une communauté passionnée, créez votre histoire et gravissez les échelons.
                 </p>
+
+                <div class="flex flex-col md:flex-row gap-4 w-full max-w-md md:max-w-none justify-center">
+                    <button onclick="actions.login()" class="glass-btn h-14 px-8 rounded-full font-bold text-lg flex items-center justify-center gap-3 transition-transform hover:scale-105 cursor-pointer shadow-[0_0_40px_rgba(10,132,255,0.3)]">
+                        <i data-lucide="gamepad-2" class="w-6 h-6"></i>
+                        Connexion Citoyen
+                    </button>
+                    <a href="${CONFIG.INVITE_URL}" target="_blank" class="glass-btn-secondary h-14 px-8 rounded-full font-bold text-lg flex items-center justify-center gap-3 transition-transform hover:scale-105 cursor-pointer bg-white/5 hover:bg-white/10">
+                        <i data-lucide="message-circle" class="w-6 h-6"></i>
+                        Communauté
+                    </a>
+                </div>
+            </div>
+
+            <!-- Footer Stats -->
+            <div class="relative z-10 p-8 flex justify-center gap-12 text-center animate-fade-in opacity-60">
+                <div>
+                    <div class="text-2xl font-bold text-white">40+</div>
+                    <div class="text-xs text-gray-500 uppercase tracking-widest">Joueurs</div>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-white">LA</div>
+                    <div class="text-xs text-gray-500 uppercase tracking-widest">Map</div>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-white">RP</div>
+                    <div class="text-xs text-gray-500 uppercase tracking-widest">Strict</div>
+                </div>
             </div>
         </div>
     `,
@@ -184,7 +220,7 @@ const Views = {
                                 <i data-lucide="shield" class="w-4 h-4"></i> Mode Staff
                             </div>
                         ` : ''}
-                        <button onclick="actions.logout()" class="glass-btn-secondary p-3 rounded-full hover:bg-red-500/20 hover:text-red-400 transition-colors cursor-pointer">
+                        <button onclick="actions.confirmLogout()" class="glass-btn-secondary p-3 rounded-full hover:bg-red-500/20 hover:text-red-400 transition-colors cursor-pointer">
                             <i data-lucide="log-out" class="w-5 h-5"></i>
                         </button>
                     </div>
@@ -331,42 +367,93 @@ const Views = {
                  return '';
             }
             const pending = state.pendingApplications || [];
+            const allChars = state.allCharactersAdmin || [];
             
             content = `
-                <div class="animate-fade-in max-w-4xl mx-auto">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xl font-bold">Demandes en attente</h2>
-                        <span class="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-xs font-bold">${pending.length}</span>
-                    </div>
+                <div class="animate-fade-in max-w-5xl mx-auto space-y-12">
                     
-                    <div class="space-y-4">
-                        ${pending.length === 0 ? `<div class="p-8 text-center text-gray-500 bg-white/5 rounded-xl border border-dashed border-white/10">Aucune demande en attente.</div>` : ''}
+                    <!-- Section Demandes en attente -->
+                    <div>
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                                <i data-lucide="clock" class="w-5 h-5 text-amber-400"></i>
+                                Demandes en attente
+                            </h2>
+                            <span class="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-xs font-bold">${pending.length}</span>
+                        </div>
                         
-                        ${pending.map(p => `
-                            <div class="glass-card p-4 rounded-xl flex items-center justify-between">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center font-bold text-gray-400 border border-white/10 overflow-hidden">
-                                        ${p.discord_avatar ? `<img src="${p.discord_avatar}" class="w-full h-full object-cover">` : p.first_name[0]}
-                                    </div>
-                                    <div>
-                                        <div class="font-bold text-white">${p.first_name} ${p.last_name}</div>
-                                        <div class="text-xs text-gray-400 flex items-center gap-2">
-                                            <i data-lucide="user" class="w-3 h-3"></i> 
-                                            <span class="text-blue-300">${p.discord_username || 'Inconnu'}</span>
-                                            <span class="text-gray-600">•</span>
-                                            <span>${p.age} ans</span>
-                                            <span class="text-gray-600">•</span>
-                                            <span>${p.birth_place}</span>
+                        <div class="space-y-3">
+                            ${pending.length === 0 ? `<div class="p-6 text-center text-gray-500 bg-white/5 rounded-xl border border-dashed border-white/10 text-sm">Aucune demande en attente de validation.</div>` : ''}
+                            
+                            ${pending.map(p => `
+                                <div class="glass-card p-4 rounded-xl flex items-center justify-between border-l-4 border-l-amber-500/50">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center font-bold text-gray-400 border border-white/10 overflow-hidden">
+                                            ${p.discord_avatar ? `<img src="${p.discord_avatar}" class="w-full h-full object-cover">` : p.first_name[0]}
+                                        </div>
+                                        <div>
+                                            <div class="font-bold text-white">${p.first_name} ${p.last_name}</div>
+                                            <div class="text-xs text-gray-400 flex items-center gap-2">
+                                                <span class="text-blue-300">@${p.discord_username || 'Inconnu'}</span>
+                                                <span class="text-gray-600">•</span>
+                                                <span>${p.age} ans</span>
+                                            </div>
                                         </div>
                                     </div>
+                                    <div class="flex gap-2">
+                                        <button onclick="actions.decideApplication('${p.id}', 'accepted')" class="bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 p-2 rounded-lg transition-colors cursor-pointer" title="Accepter"><i data-lucide="check" class="w-4 h-4"></i></button>
+                                        <button onclick="actions.decideApplication('${p.id}', 'rejected')" class="bg-red-500/20 hover:bg-red-500/40 text-red-400 p-2 rounded-lg transition-colors cursor-pointer" title="Rejeter"><i data-lucide="x" class="w-4 h-4"></i></button>
+                                    </div>
                                 </div>
-                                <div class="flex gap-2">
-                                    <button onclick="actions.decideApplication('${p.id}', 'accepted')" class="bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 p-2 rounded-lg transition-colors cursor-pointer"><i data-lucide="check" class="w-4 h-4"></i></button>
-                                    <button onclick="actions.decideApplication('${p.id}', 'rejected')" class="bg-red-500/20 hover:bg-red-500/40 text-red-400 p-2 rounded-lg transition-colors cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
-                                </div>
-                            </div>
-                        `).join('')}
+                            `).join('')}
+                        </div>
                     </div>
+
+                    <!-- Section Base de Données Globale -->
+                    <div>
+                         <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                                <i data-lucide="database" class="w-5 h-5 text-blue-400"></i>
+                                Base de données Citoyenne
+                            </h2>
+                            <span class="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-xs font-bold">${allChars.length}</span>
+                        </div>
+
+                        <div class="glass-panel overflow-hidden rounded-xl">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-white/5 text-xs uppercase text-gray-400 font-semibold tracking-wider">
+                                    <tr>
+                                        <th class="p-4 border-b border-white/10">Citoyen</th>
+                                        <th class="p-4 border-b border-white/10">Propriétaire</th>
+                                        <th class="p-4 border-b border-white/10">Statut</th>
+                                        <th class="p-4 border-b border-white/10 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-sm divide-y divide-white/5">
+                                    ${allChars.map(c => `
+                                        <tr class="hover:bg-white/5 transition-colors">
+                                            <td class="p-4 font-medium text-white">${c.first_name} ${c.last_name}</td>
+                                            <td class="p-4 text-blue-300">@${c.discord_username}</td>
+                                            <td class="p-4">
+                                                <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold 
+                                                    ${c.status === 'accepted' ? 'bg-emerald-500/20 text-emerald-400' : 
+                                                      c.status === 'rejected' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}">
+                                                    ${c.status}
+                                                </span>
+                                            </td>
+                                            <td class="p-4 text-right">
+                                                <button onclick="actions.adminDeleteCharacter('${c.id}', '${c.first_name} ${c.last_name}')" class="text-gray-500 hover:text-red-400 transition-colors p-1" title="Supprimer définitivement">
+                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                    ${allChars.length === 0 ? `<tr><td colspan="4" class="p-8 text-center text-gray-500">Aucun citoyen dans la base.</td></tr>` : ''}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             `;
         } else {
@@ -417,7 +504,14 @@ const Views = {
                                 <span class="text-orange-400">File: ${state.queueCount}</span>
                             </div>
                          </div>
-                         <button onclick="actions.logout()" class="w-full glass-btn-secondary py-2 rounded-lg text-xs text-red-300 hover:bg-red-900/20 border-red-500/10 cursor-pointer">Déconnexion</button>
+                         <div class="grid grid-cols-2 gap-2">
+                             <button onclick="actions.backToSelect()" class="w-full glass-btn-secondary py-2 rounded-lg text-xs text-gray-300 hover:bg-white/10 cursor-pointer flex items-center justify-center gap-1" title="Changer de personnage">
+                                <i data-lucide="users" class="w-3 h-3"></i> Menu
+                             </button>
+                             <button onclick="actions.confirmLogout()" class="w-full glass-btn-secondary py-2 rounded-lg text-xs text-red-300 hover:bg-red-900/20 border-red-500/10 cursor-pointer flex items-center justify-center gap-1">
+                                <i data-lucide="log-out" class="w-3 h-3"></i> Sortir
+                             </button>
+                         </div>
                     </div>
                 </aside>
 
@@ -616,44 +710,38 @@ const loadCharacters = async () => {
     }
 };
 
-// Fetch Pending Applications AND Join with Discord Profile info
-const fetchPendingApplications = async () => {
-    if (!state.user || !state.supabase) return;
+// Generic Fetcher for Staff lists
+const fetchCharactersWithProfiles = async (statusFilter = null) => {
+    if (!state.user || !state.supabase) return [];
 
-    // 1. Get Pending Characters
-    const { data: chars, error: charError } = await state.supabase
-        .from('characters')
-        .select('*')
-        .eq('status', 'pending');
+    let query = state.supabase.from('characters').select('*');
     
-    if (charError || !chars) {
-        state.pendingApplications = [];
-        return;
+    if (statusFilter) {
+        query = query.eq('status', statusFilter);
+    }
+    
+    // 1. Get Characters
+    const { data: chars, error: charError } = await query;
+    
+    if (charError || !chars || chars.length === 0) {
+        return [];
     }
 
-    // 2. Get the unique user IDs from these characters
+    // 2. Get unique User IDs
     const userIds = [...new Set(chars.map(c => c.user_id))];
 
-    if (userIds.length === 0) {
-        state.pendingApplications = [];
-        return;
-    }
-
-    // 3. Fetch profiles matching these IDs
+    // 3. Fetch Profiles
     const { data: profiles, error: profileError } = await state.supabase
         .from('profiles')
         .select('id, username, avatar_url')
         .in('id', userIds);
 
     if (profileError) {
-        console.warn("Could not fetch profiles for apps", profileError);
-        // Fallback: show chars without extra info
-        state.pendingApplications = chars;
-        return;
+        return chars;
     }
 
-    // 4. Merge Data manually
-    const enrichedApps = chars.map(char => {
+    // 4. Merge
+    return chars.map(char => {
         const profile = profiles.find(p => p.id === char.user_id);
         return {
             ...char,
@@ -661,9 +749,15 @@ const fetchPendingApplications = async () => {
             discord_avatar: profile ? profile.avatar_url : null
         };
     });
-
-    state.pendingApplications = enrichedApps;
 };
+
+const fetchPendingApplications = async () => {
+    state.pendingApplications = await fetchCharactersWithProfiles('pending');
+};
+
+const fetchAllCharacters = async () => {
+    state.allCharactersAdmin = await fetchCharactersWithProfiles(null); // No filter = All
+}
 
 const createCharacter = async (formData) => {
     if (state.characters.length >= CONFIG.MAX_CHARS) {
@@ -733,12 +827,23 @@ window.actions = {
         window.location.href = url;
     },
     
+    confirmLogout: () => {
+        if(confirm("Voulez-vous vraiment vous déconnecter ?")) {
+            window.actions.logout();
+        }
+    },
+
     logout: async () => {
         state.user = null;
         state.accessToken = null;
         state.characters = [];
         window.location.hash = '';
         router('login');
+    },
+
+    backToSelect: () => {
+        state.activeCharacter = null;
+        router('select');
     },
 
     selectCharacter: (charId) => {
@@ -793,7 +898,10 @@ window.actions = {
     loadStaffPanel: async () => {
         state.activeHubPanel = 'staff';
         // Show loading state implicitly or explicit loader
-        await fetchPendingApplications();
+        await Promise.all([
+            fetchPendingApplications(),
+            fetchAllCharacters()
+        ]);
         render();
     },
     
@@ -812,9 +920,29 @@ window.actions = {
         if (!error) {
             // Refresh list immediately
             await fetchPendingApplications();
+            // Also refresh global list
+            await fetchAllCharacters();
             render(); 
         } else {
             alert("Erreur update: " + error.message);
+        }
+    },
+
+    adminDeleteCharacter: async (id, name) => {
+        if (!state.user.isStaff) return;
+        if (!confirm(`ADMIN: Supprimer définitivement le personnage "${name}" ?`)) return;
+
+        const { error } = await state.supabase
+            .from('characters')
+            .delete()
+            .eq('id', id);
+
+        if (!error) {
+             await fetchAllCharacters();
+             await fetchPendingApplications();
+             render();
+        } else {
+            alert("Erreur: " + error.message);
         }
     }
 };
