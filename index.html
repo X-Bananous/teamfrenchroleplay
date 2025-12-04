@@ -1,60 +1,75 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
+<html lang="fr">
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RP Verse Hub</title>
+    <title>TFRP : Team French RolePlay</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Tailwind (Utility classes pour layout rapide) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
-              discord: '#5865F2',
-              dark: {
-                900: '#121212',
-                800: '#1E1E1E',
-                700: '#2C2C2C',
+              apple: {
+                dark: '#000000',
+                gray: '#1c1c1e',
+                blue: '#0A84FF',
+                indigo: '#5E5CE6',
+                glass: 'rgba(30, 30, 30, 0.65)',
+                glassBorder: 'rgba(255, 255, 255, 0.1)',
               }
+            },
+            fontFamily: {
+              sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
             }
           }
         }
       }
     </script>
-    <style>
-      body {
-        background-color: #0f172a;
-        color: #e2e8f0;
-      }
-      /* Custom scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #1e293b; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #475569; 
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #64748b; 
-      }
-    </style>
-  <script type="importmap">
+    
+    <!-- Custom Styles (Glassmorphism) -->
+    <link rel="stylesheet" href="style.css">
+<script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.86.2",
     "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1",
-    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.86.2"
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/"
   }
 }
 </script>
 </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<body class="bg-black text-white overflow-hidden antialiased selection:bg-apple-blue selection:text-white">
+    
+    <!-- Dynamic App Container -->
+    <div id="app" class="h-screen w-full relative">
+        <!-- Background Elements (Abstract Aura) -->
+        <div class="fixed inset-0 z-0 pointer-events-none">
+             <div class="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-900/20 rounded-full blur-[120px] opacity-60"></div>
+             <div class="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-purple-900/20 rounded-full blur-[120px] opacity-60"></div>
+        </div>
+
+        <!-- Main View Container -->
+        <div id="view-container" class="relative z-10 h-full w-full flex flex-col">
+            <!-- Content injected by JS -->
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script type="module" src="app.js"></script>
+</body>
 </html>

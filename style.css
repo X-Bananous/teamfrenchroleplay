@@ -1,0 +1,114 @@
+/* Reset & Base */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', -apple-system, sans-serif;
+    background-color: #000;
+    color: #f5f5f7;
+}
+
+/* Scrollbar Style Apple-ish */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+    background: rgba(28, 28, 30, 0.65);
+    backdrop-filter: saturate(180%) blur(30px);
+    -webkit-backdrop-filter: saturate(180%) blur(30px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+}
+
+.glass-card {
+    background: rgba(44, 44, 46, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.glass-card:hover {
+    background: rgba(60, 60, 65, 0.5);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 15px 40px -10px rgba(0, 0, 0, 0.6);
+}
+
+.glass-btn {
+    background: rgba(10, 132, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 15px rgba(10, 132, 255, 0.2);
+}
+
+.glass-btn:hover {
+    background: rgba(10, 132, 255, 1);
+    box-shadow: 0 0 25px rgba(10, 132, 255, 0.4);
+    transform: scale(1.02);
+}
+
+.glass-btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: #f5f5f7;
+    transition: all 0.2s ease;
+}
+
+.glass-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.glass-input {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    transition: all 0.2s;
+}
+
+.glass-input:focus {
+    background: rgba(0, 0, 0, 0.4);
+    border-color: #0A84FF;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.25);
+}
+
+/* Apple-style Switch/Tabs */
+.glass-tabs {
+    background: rgba(118, 118, 128, 0.24);
+    backdrop-filter: blur(10px);
+    border-radius: 9px;
+    padding: 2px;
+}
+
+.glass-tab-active {
+    background: rgba(99, 99, 102, 0.8);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+    color: white;
+}
+
+/* Animations */
+@keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.98); filter: blur(4px); }
+    to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+.view-animate {
+    animation: fadeInScale 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
