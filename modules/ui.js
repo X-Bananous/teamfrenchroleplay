@@ -49,7 +49,6 @@ const createToastContainer = () => {
 };
 
 // --- GENERIC MODAL SYSTEM ---
-// Remplace alert/confirm par des popups intégrés
 export const closeModal = () => {
     const modal = document.getElementById('global-modal');
     if(modal) {
@@ -112,9 +111,12 @@ export const showModal = ({ title, content, confirmText, cancelText, onConfirm, 
     }
 };
 
-// Global Exposure for inline HTML events
-window.ui = {
+// Export l'objet ui requis par app.js
+export const ui = {
     showToast,
     showModal,
     closeModal
 };
+
+// Global Exposure for inline HTML events
+window.ui = ui;

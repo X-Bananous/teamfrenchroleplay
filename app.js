@@ -1,5 +1,4 @@
 
-
 /**
  * TFRP Core Logic
  * Modularized Structure
@@ -8,7 +7,8 @@
 import { CONFIG } from './modules/config.js';
 import { state } from './modules/state.js';
 import { router, render, hasPermission } from './modules/utils.js';
-import { ui } from './modules/ui.js';
+// L'import ci-dessous fonctionnera maintenant grâce à l'export nommé dans ui.js
+import { ui } from './modules/ui.js'; 
 import { 
     loadCharacters, 
     fetchBankData, 
@@ -181,15 +181,6 @@ window.actions = {
         // Targeted DOM update instead of render()
         const container = document.getElementById('inventory-list-container');
         if(container) {
-            // Re-use logic from AssetsView partial render? 
-            // For simplicity in Vanilla JS structure here, we trigger render but focus management is key.
-            // Actually, best is to just filter hidden classes or re-render.
-            // Let's use re-render but we need to ensure input keeps focus.
-            // WORKAROUND: The AssetsView logic was updated to use 'oninput' calling this.
-            // We will do a full render for now as the user asked for fix, but the fix is actually to NOT lose focus.
-            // render() recreates DOM, killing focus.
-            // Fix: We update the DOM manually here.
-            
             // Re-fetch combined inventory locally to filter
             let items = [...state.inventory];
             if(state.bankAccount.cash_balance > 0) items.push({name: 'Espèces', quantity: state.bankAccount.cash_balance, is_cash:true, estimated_value:1});
@@ -340,15 +331,6 @@ window.actions = {
     // Optimized Staff Search (No re-render)
     staffSearch: (query) => {
         state.staffSearchQuery = query;
-        // Normally we'd do targeted DOM updates, but for Staff tables (complex), we might debounce render.
-        // For now, to solve "recharge page" (loss of focus), we need to maintain focus.
-        // The render() function completely wipes DOM.
-        
-        // Solution: Do NOT call render(). Filter lines via CSS.
-        // We add a specific ID to the rows in StaffView and toggle 'hidden' class here.
-        // Since StaffView code wasn't heavily modified for IDs, we will stick to render() BUT
-        // we must focus the input back after render.
-        
         render(); 
         // Restore focus hack
         setTimeout(() => {
@@ -735,6 +717,7 @@ const appRenderer = () => {
 
 // --- POLLING LOOP FOR SYNC (TIMERS & NOTIFS) ---
 const startPolling = () => {
+    // Increased frequency to 1000ms (1s) to make the Heist Timer smooth
     setInterval(async () => {
         // Only if logged in and in relevant tabs
         if (!state.user || !state.activeCharacter) return;
@@ -742,10 +725,10 @@ const startPolling = () => {
         // Update Heist Status
         if (state.activeHubPanel === 'illicit') {
              await fetchActiveHeistLobby(state.activeCharacter.id);
-             // We could trigger partial render for timer here, but for now simple:
+             // Trigger render if active to update timer
              if(state.activeHeistLobby && state.activeHeistLobby.status === 'active') render(); 
         }
-    }, 2000); // 2 seconds poll
+    }, 1000); 
 };
 
 // Listen for the custom event from router/utils
