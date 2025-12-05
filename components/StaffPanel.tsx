@@ -1,1 +1,0 @@
-// Migré vers app.js (Views.Hub panel 'staff')
