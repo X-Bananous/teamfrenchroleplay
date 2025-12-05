@@ -1,3 +1,4 @@
+
 /**
  * TFRP Core Logic
  * Modularized Structure
@@ -10,7 +11,9 @@ import {
     loadCharacters, 
     fetchBankData, 
     fetchPendingApplications, 
-    fetchAllCharacters 
+    fetchAllCharacters,
+    fetchStaffProfiles,
+    searchProfiles
 } from './modules/services.js';
 
 // Views
@@ -114,8 +117,17 @@ window.actions = {
             state.filteredRecipients = [];
             await fetchBankData(state.activeCharacter.id);
         } else if (panel === 'staff') {
-            state.activeStaffTab = 'applications';
-            await Promise.all([fetchPendingApplications(), fetchAllCharacters()]);
+            // Default tab based on permission priority
+            if (hasPermission('can_approve_characters')) state.activeStaffTab = 'applications';
+            else if (hasPermission('can_manage_economy')) state.activeStaffTab = 'economy';
+            else if (hasPermission('can_manage_staff')) state.activeStaffTab = 'permissions';
+            else state.activeStaffTab = 'database'; // Fallback for basic staff
+            
+            await Promise.all([
+                fetchPendingApplications(), 
+                fetchAllCharacters(),
+                fetchStaffProfiles()
+            ]);
         }
         render();
     },
@@ -137,50 +149,105 @@ window.actions = {
     },
 
     adminDeleteCharacter: async (id, name) => {
-        if (!hasPermission('can_delete_characters')) return;
-        if (!confirm(`ADMIN: Supprimer "${name}" ?`)) return;
+        // Changed to use new permission
+        if (!hasPermission('can_manage_characters') && !state.user.isFounder) {
+            alert("Permission manquante: Gérer Personnages");
+            return;
+        }
+        if (!confirm(`ADMIN: Supprimer définitivement "${name}" ?`)) return;
         const { error } = await state.supabase.from('characters').delete().eq('id', id);
         if (!error) { await fetchAllCharacters(); await fetchPendingApplications(); render(); }
     },
 
+    // Permission Management
     adminLookupUser: async (e) => {
         e.preventDefault();
-        const id = new FormData(e.target).get('discord_id');
-        const container = document.getElementById('perm-editor-container');
+        const query = new FormData(e.target).get('query');
+        const container = document.getElementById('perm-search-results');
         
-        container.innerHTML = '<div class="loader-spinner w-6 h-6 border-2"></div>';
+        container.innerHTML = '<div class="loader-spinner w-6 h-6 border-2 mx-auto"></div>';
 
-        const { data: profile } = await state.supabase.from('profiles').select('*').eq('id', id).single();
+        const results = await searchProfiles(query);
+        state.staffSearchResults = results;
         
-        if (!profile) {
-            container.innerHTML = '<p class="text-red-400">Utilisateur introuvable.</p>';
+        actions.renderStaffSearchResults();
+    },
+
+    renderStaffSearchResults: () => {
+        const container = document.getElementById('perm-search-results');
+        if (!container) return;
+
+        if (state.staffSearchResults.length === 0) {
+            container.innerHTML = '<p class="text-center text-gray-500 py-4">Aucun utilisateur trouvé.</p>';
             return;
         }
+
+        container.innerHTML = `
+            <div class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar bg-black/20 rounded-xl p-2 mb-4">
+                ${state.staffSearchResults.map(p => `
+                    <button onclick="actions.selectUserForPerms('${p.id}')" class="w-full text-left p-3 rounded-lg hover:bg-white/10 flex items-center gap-3 transition-colors">
+                        <img src="${p.avatar_url || ''}" class="w-8 h-8 rounded-full bg-gray-700">
+                        <div>
+                            <div class="font-bold text-sm text-white">${p.username}</div>
+                            <div class="text-[10px] text-gray-500">${p.id}</div>
+                        </div>
+                    </button>
+                `).join('')}
+            </div>
+        `;
+    },
+
+    selectUserForPerms: async (userId) => {
+        // Find profile in search results or fetch it
+        let profile = state.staffSearchResults.find(p => p.id === userId);
+        if(!profile) {
+            const { data } = await state.supabase.from('profiles').select('*').eq('id', userId).single();
+            profile = data;
+        }
+        
+        if (!profile) return;
+
+        actions.renderPermEditor(profile);
+    },
+
+    renderPermEditor: (profile) => {
+        const container = document.getElementById('perm-editor-container');
+        if (!container) return;
 
         const currentPerms = profile.permissions || {};
 
         const checkboxes = [
             { k: 'can_approve_characters', l: 'Valider Fiches' },
-            { k: 'can_delete_characters', l: 'Supprimer Fiches' },
+            { k: 'can_manage_characters', l: 'Gérer Personnages (Suppr.)' },
             { k: 'can_manage_economy', l: 'Gérer Économie' },
             { k: 'can_manage_staff', l: 'Gérer Staff' }
-            // Removed Bypass Login
         ].map(p => `
-            <label class="flex items-center gap-3 p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10">
-                <input type="checkbox" onchange="actions.updatePermission('${id}', '${p.k}', this.checked)" ${currentPerms[p.k] ? 'checked' : ''} class="w-5 h-5 rounded border-gray-600 text-blue-500 focus:ring-blue-500 bg-gray-700">
+            <label class="flex items-center gap-3 p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition-colors">
+                <input type="checkbox" onchange="actions.updatePermission('${profile.id}', '${p.k}', this.checked)" ${currentPerms[p.k] ? 'checked' : ''} class="w-5 h-5 rounded border-gray-600 text-blue-500 focus:ring-blue-500 bg-gray-700">
                 <span class="text-white text-sm font-medium">${p.l}</span>
             </label>
         `).join('');
 
         container.innerHTML = `
-            <div class="flex items-center gap-4 mb-4">
-                <img src="${profile.avatar_url || ''}" class="w-10 h-10 rounded-full">
-                <span class="font-bold text-white">${profile.username}</span>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                ${checkboxes}
+            <div class="animate-fade-in bg-white/5 border border-white/5 p-4 rounded-xl">
+                <div class="flex items-center justify-between mb-4 border-b border-white/5 pb-4">
+                    <div class="flex items-center gap-3">
+                        <img src="${profile.avatar_url || ''}" class="w-12 h-12 rounded-full border border-white/10">
+                        <div>
+                            <div class="font-bold text-white text-lg">${profile.username}</div>
+                            <div class="text-xs text-gray-500">Modification des droits</div>
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('perm-editor-container').innerHTML = ''" class="text-gray-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    ${checkboxes}
+                </div>
             </div>
         `;
+        
+        // Clear search results to clean up UI
+        document.getElementById('perm-search-results').innerHTML = '';
     },
 
     updatePermission: async (userId, permKey, value) => {
@@ -188,7 +255,16 @@ window.actions = {
         const { data: profile } = await state.supabase.from('profiles').select('permissions').eq('id', userId).single();
         const newPerms = { ...(profile.permissions || {}) };
         if (value) newPerms[permKey] = true; else delete newPerms[permKey];
+        
         await state.supabase.from('profiles').update({ permissions: newPerms }).eq('id', userId);
+        
+        // Refresh local lists
+        await fetchStaffProfiles();
+        render(); // Re-render to update the staff list on the right
+        
+        // If we are editing the same user, keep the editor open (it will re-render via state logic if we fully re-render, 
+        // but here we just updated DB. Let's manually re-fetch and update editor if needed, 
+        // but for now the checkbox state is locally accurate).
     },
 
     // Banking Actions

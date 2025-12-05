@@ -1,3 +1,4 @@
+
 export const state = {
     user: null, // Données Discord + Permissions
     accessToken: null,
@@ -9,6 +10,8 @@ export const state = {
     // Staff Data
     pendingApplications: [],
     allCharactersAdmin: [],
+    staffMembers: [], // List of current staff
+    staffSearchResults: [], // Results when searching for a user to give perms
     economyModal: { 
         isOpen: false,
         targetId: null, // ID character or 'ALL'

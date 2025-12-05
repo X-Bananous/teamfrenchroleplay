@@ -1,3 +1,4 @@
+
 import { state } from './state.js';
 
 export const loadCharacters = async () => {
@@ -36,6 +37,37 @@ export const fetchPendingApplications = async () => {
 
 export const fetchAllCharacters = async () => {
     state.allCharactersAdmin = await fetchCharactersWithProfiles(null);
+};
+
+export const fetchStaffProfiles = async () => {
+    if (!state.user || !state.supabase) return;
+    // Note: Filtering JSONB 'permissions' not equals '{}' is tricky in Supabase JS without RPC or raw SQL.
+    // For this prototype, we fetch profiles and filter in JS. In prod, use a better query or a 'is_staff' boolean column.
+    const { data: profiles } = await state.supabase
+        .from('profiles')
+        .select('*');
+    
+    if (profiles) {
+        state.staffMembers = profiles.filter(p => p.permissions && Object.keys(p.permissions).length > 0);
+    }
+};
+
+export const searchProfiles = async (query) => {
+    if (!query) return [];
+    
+    // Check if query is an ID (digits)
+    const isId = /^\d+$/.test(query);
+
+    let dbQuery = state.supabase.from('profiles').select('*');
+    
+    if (isId) {
+        dbQuery = dbQuery.eq('id', query);
+    } else {
+        dbQuery = dbQuery.ilike('username', `%${query}%`);
+    }
+
+    const { data } = await dbQuery.limit(10);
+    return data || [];
 };
 
 // Economy Services

@@ -1,32 +1,36 @@
+
 import { state } from '../state.js';
 import { hasPermission } from '../utils.js';
 
 export const StaffView = () => {
+    // Basic check: Must have at least ONE permission or be founder
     const hasAnyPerm = Object.keys(state.user.permissions || {}).length > 0 || state.user.isFounder;
     if (!hasAnyPerm) return `<div class="p-8 text-red-500">Accès interdit.</div>`;
 
     let content = '';
 
-    // TABS NAVIGATION - Added Economy Tab
+    // TABS NAVIGATION
+    // Logic: Tabs are visible only if the user has the specific permission
+    // EXCEPTION: 'database' is visible if the user has ANY permission, but buttons inside are restricted
     const tabsHtml = `
-        <div class="flex gap-2 mb-8 border-b border-white/10 pb-1">
+        <div class="flex gap-2 mb-8 border-b border-white/10 pb-1 overflow-x-auto custom-scrollbar">
             ${hasPermission('can_approve_characters') ? `
-                <button onclick="actions.setStaffTab('applications')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${state.activeStaffTab === 'applications' ? 'bg-white/10 text-white border-b-2 border-blue-500' : 'text-gray-400 hover:text-white'}">
+                <button onclick="actions.setStaffTab('applications')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${state.activeStaffTab === 'applications' ? 'bg-white/10 text-white border-b-2 border-blue-500' : 'text-gray-400 hover:text-white'}">
                     Candidatures
                 </button>
             ` : ''}
-            ${hasPermission('can_delete_characters') ? `
-                <button onclick="actions.setStaffTab('database')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${state.activeStaffTab === 'database' ? 'bg-white/10 text-white border-b-2 border-blue-500' : 'text-gray-400 hover:text-white'}">
-                    Base de Données
-                </button>
-            ` : ''}
+            
+            <button onclick="actions.setStaffTab('database')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${state.activeStaffTab === 'database' ? 'bg-white/10 text-white border-b-2 border-orange-500' : 'text-gray-400 hover:text-white'}">
+                Base de Données
+            </button>
+            
             ${hasPermission('can_manage_economy') ? `
-                <button onclick="actions.setStaffTab('economy')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${state.activeStaffTab === 'economy' ? 'bg-white/10 text-white border-b-2 border-emerald-500' : 'text-gray-400 hover:text-white'}">
+                <button onclick="actions.setStaffTab('economy')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${state.activeStaffTab === 'economy' ? 'bg-white/10 text-white border-b-2 border-emerald-500' : 'text-gray-400 hover:text-white'}">
                     Économie
                 </button>
             ` : ''}
             ${hasPermission('can_manage_staff') ? `
-                <button onclick="actions.setStaffTab('permissions')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${state.activeStaffTab === 'permissions' ? 'bg-white/10 text-white border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}">
+                <button onclick="actions.setStaffTab('permissions')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${state.activeStaffTab === 'permissions' ? 'bg-white/10 text-white border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}">
                     Permissions
                 </button>
             ` : ''}
@@ -104,8 +108,11 @@ export const StaffView = () => {
                 `).join('')}
             </div>
         `;
-    } else if (state.activeStaffTab === 'database' && hasPermission('can_delete_characters')) {
+    } else if (state.activeStaffTab === 'database') {
+        // Visible to everyone with ANY perm, but actions are restricted
+        const canDelete = hasPermission('can_manage_characters');
         const allChars = state.allCharactersAdmin || [];
+        
         content = `
             <div class="glass-panel overflow-hidden rounded-xl">
                 <table class="w-full text-left border-collapse">
@@ -130,9 +137,11 @@ export const StaffView = () => {
                                     </span>
                                 </td>
                                 <td class="p-4 text-right flex justify-end gap-2">
-                                    <button onclick="actions.adminDeleteCharacter('${c.id}', '${c.first_name} ${c.last_name}')" class="text-gray-500 hover:text-red-400 p-1">
-                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                    </button>
+                                    ${canDelete ? `
+                                        <button onclick="actions.adminDeleteCharacter('${c.id}', '${c.first_name} ${c.last_name}')" class="text-gray-500 hover:text-red-400 p-1" title="Supprimer définitivement">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    ` : `<span class="text-gray-700 text-xs">Lecture Seule</span>`}
                                 </td>
                             </tr>
                         `).join('')}
@@ -142,7 +151,6 @@ export const StaffView = () => {
         `;
     } else if (state.activeStaffTab === 'economy' && hasPermission('can_manage_economy')) {
         const allChars = state.allCharactersAdmin || [];
-        // Economy dedicated tab logic
         content = `
             <div class="mb-6 flex justify-between items-center bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10">
                 <div>
@@ -186,23 +194,50 @@ export const StaffView = () => {
 
     } else if (state.activeStaffTab === 'permissions' && hasPermission('can_manage_staff')) {
         content = `
-            <div class="glass-panel p-6 rounded-xl mb-6">
-                <h3 class="font-bold text-white mb-4">Gérer les permissions Staff</h3>
-                <form onsubmit="actions.adminLookupUser(event)" class="flex gap-4 mb-6">
-                    <input type="text" name="discord_id" placeholder="ID Discord (ex: 81495...)" class="glass-input flex-1 p-3 rounded-lg" required>
-                    <button type="submit" class="glass-btn px-6 rounded-lg">Chercher</button>
-                </form>
-                
-                <div id="perm-editor-container">
-                    <!-- Dynamic content filled by JS after lookup -->
-                    <p class="text-gray-500 text-sm italic">Entrez un ID pour modifier les droits.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Left: Search and Editor -->
+                <div class="space-y-4">
+                    <div class="glass-panel p-6 rounded-xl">
+                        <h3 class="font-bold text-white mb-4">Rechercher un membre</h3>
+                        <form onsubmit="actions.adminLookupUser(event)" class="flex gap-4">
+                            <input type="text" name="query" placeholder="Pseudo ou ID Discord..." class="glass-input flex-1 p-3 rounded-lg" required>
+                            <button type="submit" class="glass-btn px-4 rounded-lg"><i data-lucide="search" class="w-4 h-4"></i></button>
+                        </form>
+                        
+                        <div id="perm-search-results" class="mt-4"></div>
+                        <div id="perm-editor-container"></div>
+                    </div>
+                </div>
+
+                <!-- Right: Current Staff List -->
+                <div class="glass-panel p-6 rounded-xl h-fit">
+                    <h3 class="font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="shield" class="w-4 h-4 text-purple-400"></i>
+                        Équipe Staff Actuelle
+                    </h3>
+                    <div class="space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar">
+                        ${state.staffMembers.map(m => `
+                            <button onclick="actions.selectUserForPerms('${m.id}')" class="w-full text-left p-3 rounded-lg bg-white/5 hover:bg-white/10 flex items-center gap-3 transition-colors border border-white/5 group">
+                                <img src="${m.avatar_url || ''}" class="w-10 h-10 rounded-full border border-white/10 group-hover:border-purple-500/50 transition-colors">
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-bold text-white text-sm truncate">${m.username}</div>
+                                    <div class="flex flex-wrap gap-1 mt-1">
+                                        ${m.permissions.can_approve_characters ? '<span class="text-[9px] px-1 bg-blue-500/20 text-blue-300 rounded">Candid</span>' : ''}
+                                        ${m.permissions.can_manage_economy ? '<span class="text-[9px] px-1 bg-emerald-500/20 text-emerald-300 rounded">Eco</span>' : ''}
+                                        ${m.permissions.can_manage_staff ? '<span class="text-[9px] px-1 bg-purple-500/20 text-purple-300 rounded">Admin</span>' : ''}
+                                        ${m.permissions.can_manage_characters ? '<span class="text-[9px] px-1 bg-orange-500/20 text-orange-300 rounded">DB</span>' : ''}
+                                    </div>
+                                </div>
+                            </button>
+                        `).join('')}
+                    </div>
                 </div>
             </div>
         `;
     }
 
     return `
-        <div class="animate-fade-in max-w-5xl mx-auto relative">
+        <div class="animate-fade-in max-w-6xl mx-auto relative">
             <div class="flex items-center gap-3 mb-6">
                 <div class="p-2 bg-purple-500/20 rounded-lg text-purple-400">
                     <i data-lucide="shield-alert" class="w-6 h-6"></i>
