@@ -325,7 +325,7 @@ const Views = {
     // --- Sub-Views for Hub Area ---
     
     Bank: () => {
-        if (!state.bankAccount) return '<div class="p-8 text-center text-gray-500">Chargement de la banque...</div>';
+        if (!state.bankAccount) return '<div class="p-8 text-center text-gray-500 flex flex-col items-center justify-center h-full"><div class="loader-spinner mb-4"></div>Création du compte bancaire en cours...</div>';
         
         const historyHtml = state.transactions.length > 0 
             ? state.transactions.map(t => {
@@ -923,10 +923,15 @@ const fetchAllCharacters = async () => {
 // Economy Services
 const fetchBankData = async (charId) => {
     // 1. Get Account
-    let { data: bank, error } = await state.supabase.from('bank_accounts').select('*').eq('character_id', charId).single();
+    // Use maybeSingle to prevent error on 0 rows
+    let { data: bank, error } = await state.supabase
+        .from('bank_accounts')
+        .select('*')
+        .eq('character_id', charId)
+        .maybeSingle(); 
     
     // Create if doesn't exist (First time login)
-    if (!bank && !error) {
+    if (!bank) {
         const { data: newBank } = await state.supabase.from('bank_accounts').insert([{ character_id: charId, bank_balance: 5000, cash_balance: 500 }]).select().single();
         bank = newBank;
     }
@@ -1236,8 +1241,51 @@ window.actions = {
         router('select');
     },
     
-    adminMoneyAdjust: (id) => {
-        alert("Fonctionnalité en cours de développement (Nécessite RPC SQL)");
+    adminMoneyAdjust: async (charId) => {
+        const amountStr = prompt("Montant à ajouter au compte (ou négatif pour retirer) :");
+        if (!amountStr) return;
+        const amount = parseInt(amountStr);
+        if (isNaN(amount)) return;
+
+        // 1. Get current bank
+        const { data: bank, error: bankError } = await state.supabase
+            .from('bank_accounts')
+            .select('id, bank_balance')
+            .eq('character_id', charId)
+            .maybeSingle();
+
+        if (!bank) {
+            alert("Ce personnage n'a pas de compte bancaire actif.");
+            return;
+        }
+
+        // 2. Update balance
+        const newBalance = bank.bank_balance + amount;
+        const { error: updateError } = await state.supabase
+            .from('bank_accounts')
+            .update({ bank_balance: newBalance })
+            .eq('id', bank.id);
+
+        if (updateError) {
+            alert("Erreur update: " + updateError.message);
+            return;
+        }
+
+        // 3. Log transaction
+        await state.supabase.from('transactions').insert({
+            sender_id: null,
+            receiver_id: charId,
+            amount: amount,
+            type: 'admin_adjustment',
+            description: 'Staff Intervention'
+        });
+
+        alert(`Solde mis à jour. Nouveau solde: $${newBalance}`);
+        // Refresh view if needed
+        if (state.activeStaffTab === 'database') {
+             await fetchAllCharacters(); 
+             render();
+        }
     }
 };
 
