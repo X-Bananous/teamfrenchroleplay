@@ -14,6 +14,8 @@ export interface StaffPermissions {
   can_manage_economy?: boolean;
   can_manage_staff?: boolean; // Only founders can give this, or people with this perm
   can_bypass_login?: boolean;
+  can_manage_characters?: boolean;
+  can_manage_inventory?: boolean;
 }
 
 export enum CharacterStatus {

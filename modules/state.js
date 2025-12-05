@@ -12,11 +12,22 @@ export const state = {
     pendingApplications: [],
     allCharactersAdmin: [],
     staffMembers: [], // List of current staff
-    staffSearchResults: [], // Results when searching for a user to give perms
+    
+    // Search States for Staff Panel
+    staffSearchQuery: '', 
+    staffPermissionSearchResults: [], // Dropdown results for permission tab
+    
     economyModal: { 
         isOpen: false,
         targetId: null, // ID character or 'ALL'
         targetName: null
+    },
+
+    inventoryModal: {
+        isOpen: false,
+        targetId: null,
+        targetName: null,
+        items: []
     },
     
     // Economy Data
@@ -32,7 +43,9 @@ export const state = {
     inventoryFilter: '', // For search bar in assets
     
     // Illicit Data
-    activeIllicitTab: 'light', // light, medium, heavy, sniper
+    activeIllicitTab: 'light', // light, medium, heavy, sniper, heists
+    activeHeist: null, // { type, endTime, loot, groupSize }
+    heistTimerInterval: null,
     
     // UI State
     currentView: 'login', // login, select, create, hub, access_denied

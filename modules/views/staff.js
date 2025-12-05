@@ -37,7 +37,9 @@ export const StaffView = () => {
         </div>
     `;
 
-    // MODAL ECONOMY HTML
+    // --- MODALS ---
+
+    // 1. ECONOMY MODAL
     let economyModalHtml = '';
     if (state.economyModal.isOpen && hasPermission('can_manage_economy')) {
         economyModalHtml = `
@@ -80,12 +82,93 @@ export const StaffView = () => {
         `;
     }
 
-    // CONTENT SWITCH
+    // 2. INVENTORY MODAL
+    let inventoryModalHtml = '';
+    if (state.inventoryModal.isOpen && hasPermission('can_manage_inventory')) {
+        inventoryModalHtml = `
+             <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="actions.closeInventoryModal()"></div>
+                <div class="glass-panel w-full max-w-2xl p-6 rounded-2xl relative z-10 animate-slide-up flex flex-col max-h-[85vh]">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-white">Inventaire Admin</h3>
+                            <p class="text-xs text-orange-400 uppercase tracking-widest">${state.inventoryModal.targetName}</p>
+                        </div>
+                        <button onclick="actions.closeInventoryModal()" class="text-gray-500 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto custom-scrollbar mb-6 bg-white/5 rounded-xl border border-white/5">
+                        ${state.inventoryModal.items.length > 0 ? `
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-white/5 text-xs uppercase text-gray-500 sticky top-0">
+                                    <tr>
+                                        <th class="p-3">Objet</th>
+                                        <th class="p-3">Qté</th>
+                                        <th class="p-3 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-white/5">
+                                    ${state.inventoryModal.items.map(item => `
+                                        <tr>
+                                            <td class="p-3 font-medium text-white">${item.name}</td>
+                                            <td class="p-3 text-gray-400">${item.quantity}</td>
+                                            <td class="p-3 text-right">
+                                                <button onclick="actions.manageInventoryItem('remove', '${item.id}', '${item.name}')" class="text-red-400 hover:text-red-300 p-1 bg-red-500/10 rounded">
+                                                    <i data-lucide="trash" class="w-4 h-4"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        ` : `<div class="p-8 text-center text-gray-500 italic">Inventaire vide.</div>`}
+                    </div>
+
+                    <form onsubmit="actions.manageInventoryItem('add', null, null, event)" class="pt-4 border-t border-white/10">
+                        <h4 class="text-sm font-bold text-white mb-3">Ajouter un objet</h4>
+                        <div class="flex gap-2">
+                            <input type="text" name="item_name" placeholder="Nom de l'objet (ex: Montre)" class="glass-input flex-1 p-2 rounded-lg" required>
+                            <input type="number" name="quantity" value="1" min="1" class="glass-input w-20 p-2 rounded-lg" required>
+                            <input type="number" name="value" placeholder="Valeur $" class="glass-input w-24 p-2 rounded-lg" required>
+                            <button type="submit" class="glass-btn px-4 rounded-lg bg-blue-600 hover:bg-blue-500">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+    }
+
+
+    // --- CONTENT VIEWS ---
+
     if (state.activeStaffTab === 'applications' && hasPermission('can_approve_characters')) {
-        const pending = state.pendingApplications || [];
+        let pending = state.pendingApplications || [];
+        
+        // Filter
+        if (state.staffSearchQuery) {
+            const q = state.staffSearchQuery.toLowerCase();
+            pending = pending.filter(p => 
+                p.first_name.toLowerCase().includes(q) || 
+                p.last_name.toLowerCase().includes(q) ||
+                p.discord_username.toLowerCase().includes(q)
+            );
+        }
+
         content = `
+            <div class="mb-4">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-500"></i>
+                    <input type="text" 
+                        oninput="actions.staffSearch(this.value)" 
+                        value="${state.staffSearchQuery}"
+                        placeholder="Rechercher une candidature..." 
+                        class="glass-input pl-10 pr-4 py-2.5 rounded-xl w-full text-sm">
+                </div>
+            </div>
             <div class="space-y-3">
-                ${pending.length === 0 ? `<div class="p-6 text-center text-gray-500 bg-white/5 rounded-xl border border-dashed border-white/10 text-sm">Aucune demande en attente.</div>` : ''}
+                ${pending.length === 0 ? `<div class="p-6 text-center text-gray-500 bg-white/5 rounded-xl border border-dashed border-white/10 text-sm">Aucune demande trouvée.</div>` : ''}
                 ${pending.map(p => `
                     <div class="glass-card p-4 rounded-xl flex items-center justify-between border-l-4 border-l-amber-500/50">
                         <div class="flex items-center gap-4">
@@ -108,11 +191,34 @@ export const StaffView = () => {
                 `).join('')}
             </div>
         `;
+
     } else if (state.activeStaffTab === 'database') {
         const canDelete = hasPermission('can_manage_characters');
-        const allChars = state.allCharactersAdmin || [];
+        const canInventory = hasPermission('can_manage_inventory');
+        let allChars = state.allCharactersAdmin || [];
+
+        // Filter
+        if (state.staffSearchQuery) {
+            const q = state.staffSearchQuery.toLowerCase();
+            allChars = allChars.filter(c => 
+                c.first_name.toLowerCase().includes(q) || 
+                c.last_name.toLowerCase().includes(q) ||
+                c.discord_username.toLowerCase().includes(q)
+            );
+        }
         
         content = `
+            <div class="mb-4">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-500"></i>
+                    <input type="text" 
+                        oninput="actions.staffSearch(this.value)" 
+                        value="${state.staffSearchQuery}"
+                        placeholder="Rechercher un citoyen (RP ou Discord)..." 
+                        class="glass-input pl-10 pr-4 py-2.5 rounded-xl w-full text-sm">
+                </div>
+            </div>
+
             <div class="glass-panel overflow-hidden rounded-xl">
                 <table class="w-full text-left border-collapse">
                     <thead class="bg-white/5 text-xs uppercase text-gray-400 font-semibold tracking-wider">
@@ -136,6 +242,11 @@ export const StaffView = () => {
                                     </span>
                                 </td>
                                 <td class="p-4 text-right flex justify-end gap-2">
+                                    ${canInventory && c.status === 'accepted' ? `
+                                        <button onclick="actions.openInventoryModal('${c.id}', '${c.first_name} ${c.last_name}')" class="text-orange-400 hover:text-orange-300 p-1 bg-orange-500/10 rounded mr-1" title="Gérer Inventaire">
+                                            <i data-lucide="backpack" class="w-4 h-4"></i>
+                                        </button>
+                                    ` : ''}
                                     ${canDelete ? `
                                         <button onclick="actions.adminDeleteCharacter('${c.id}', '${c.first_name} ${c.last_name}')" class="text-gray-500 hover:text-red-400 p-1" title="Supprimer définitivement">
                                             <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -148,8 +259,20 @@ export const StaffView = () => {
                 </table>
             </div>
         `;
+
     } else if (state.activeStaffTab === 'economy' && hasPermission('can_manage_economy')) {
-        const allChars = state.allCharactersAdmin || [];
+        let allChars = state.allCharactersAdmin || [];
+        
+        // Filter
+        if (state.staffSearchQuery) {
+            const q = state.staffSearchQuery.toLowerCase();
+            allChars = allChars.filter(c => 
+                c.first_name.toLowerCase().includes(q) || 
+                c.last_name.toLowerCase().includes(q) ||
+                c.discord_username.toLowerCase().includes(q)
+            );
+        }
+
         content = `
             <div class="mb-6 flex justify-between items-center bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10">
                 <div>
@@ -159,6 +282,17 @@ export const StaffView = () => {
                 <button onclick="actions.openEconomyModal('ALL')" class="glass-btn-secondary px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 cursor-pointer">
                     <i data-lucide="globe" class="w-4 h-4"></i> Gérer tout le monde
                 </button>
+            </div>
+
+            <div class="mb-4">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-500"></i>
+                    <input type="text" 
+                        oninput="actions.staffSearch(this.value)" 
+                        value="${state.staffSearchQuery}"
+                        placeholder="Rechercher un joueur..." 
+                        class="glass-input pl-10 pr-4 py-2.5 rounded-xl w-full text-sm">
+                </div>
             </div>
 
             <div class="glass-panel overflow-hidden rounded-xl">
@@ -196,15 +330,29 @@ export const StaffView = () => {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Left: Search and Editor -->
                 <div class="space-y-4">
-                    <div class="glass-panel p-6 rounded-xl">
-                        <h3 class="font-bold text-white mb-4">Rechercher un membre</h3>
-                        <form onsubmit="actions.adminLookupUser(event)" class="flex gap-4">
-                            <input type="text" name="query" placeholder="Pseudo ou ID Discord..." class="glass-input flex-1 p-3 rounded-lg" required>
-                            <button type="submit" class="glass-btn px-4 rounded-lg"><i data-lucide="search" class="w-4 h-4"></i></button>
-                        </form>
+                    <div class="glass-panel p-6 rounded-xl relative min-h-[300px]">
+                        <h3 class="font-bold text-white mb-4">Gérer les permissions</h3>
+                        <p class="text-xs text-gray-400 mb-4">Recherchez un utilisateur Discord pour lui attribuer des droits.</p>
                         
-                        <div id="perm-search-results" class="mt-4"></div>
-                        <div id="perm-editor-container"></div>
+                        <!-- Banking-style Search -->
+                        <div class="relative mb-4">
+                            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3.5 text-gray-500"></i>
+                            <input type="text" 
+                                placeholder="Pseudo Discord ou ID..." 
+                                oninput="actions.searchProfilesForPerms(this.value)"
+                                class="glass-input p-3 pl-10 rounded-lg w-full text-sm placeholder-gray-500" autocomplete="off">
+                            
+                            <!-- Results Dropdown -->
+                            <div id="perm-search-dropdown" class="absolute top-full left-0 right-0 bg-[#151515] border border-white/10 rounded-xl mt-1 max-h-48 overflow-y-auto z-50 shadow-2xl custom-scrollbar hidden">
+                                <!-- JS inserts content here -->
+                            </div>
+                        </div>
+
+                        <div id="perm-editor-container">
+                            <div class="text-center text-gray-600 py-10 text-sm">
+                                Sélectionnez un utilisateur pour modifier ses droits.
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -225,6 +373,7 @@ export const StaffView = () => {
                                         ${m.permissions.can_manage_economy ? '<span class="text-[9px] px-1 bg-emerald-500/20 text-emerald-300 rounded">Eco</span>' : ''}
                                         ${m.permissions.can_manage_staff ? '<span class="text-[9px] px-1 bg-purple-500/20 text-purple-300 rounded">Admin</span>' : ''}
                                         ${m.permissions.can_manage_characters ? '<span class="text-[9px] px-1 bg-orange-500/20 text-orange-300 rounded">DB</span>' : ''}
+                                        ${m.permissions.can_manage_inventory ? '<span class="text-[9px] px-1 bg-teal-500/20 text-teal-300 rounded">Inv</span>' : ''}
                                     </div>
                                 </div>
                             </button>
@@ -246,6 +395,7 @@ export const StaffView = () => {
             ${tabsHtml}
             ${content}
             ${economyModalHtml}
+            ${inventoryModalHtml}
         </div>
     `;
 };

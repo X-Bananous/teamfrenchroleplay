@@ -17,6 +17,7 @@ import {
     searchProfiles,
     fetchInventory
 } from './modules/services.js';
+import { HEIST_DATA } from './modules/views/illicit.js';
 
 // Views
 import { LoginView, AccessDeniedView } from './modules/views/login.js';
@@ -56,6 +57,9 @@ window.actions = {
     backToSelect: async () => {
         state.activeCharacter = null;
         state.bankAccount = null;
+        // Stop any heist timer
+        if(state.heistTimerInterval) clearInterval(state.heistTimerInterval);
+        state.activeHeist = null;
         await loadCharacters();
         router('select');
     },
@@ -121,18 +125,18 @@ window.actions = {
             state.filteredRecipients = [];
             await fetchBankData(state.activeCharacter.id);
         } else if (panel === 'assets' && state.activeCharacter) {
-            // SYNC PATRIMOINE
             state.inventoryFilter = '';
             await fetchInventory(state.activeCharacter.id);
         } else if (panel === 'illicit' && state.activeCharacter) {
-            // Need Bank data for cash check
             await fetchBankData(state.activeCharacter.id);
         } else if (panel === 'staff') {
+            state.staffSearchQuery = ''; // Reset search
+            
             // Default tab based on permission priority
             if (hasPermission('can_approve_characters')) state.activeStaffTab = 'applications';
             else if (hasPermission('can_manage_economy')) state.activeStaffTab = 'economy';
             else if (hasPermission('can_manage_staff')) state.activeStaffTab = 'permissions';
-            else state.activeStaffTab = 'database'; // Fallback for basic staff
+            else state.activeStaffTab = 'database'; 
             
             await Promise.all([
                 fetchPendingApplications(), 
@@ -159,8 +163,6 @@ window.actions = {
         if (!confirm(`Acheter ${itemName} pour $${price} en espèces ?`)) return;
 
         const charId = state.activeCharacter.id;
-
-        // 1. Re-Verify Balance (Backend Fetch)
         const { data: bank } = await state.supabase.from('bank_accounts').select('cash_balance').eq('character_id', charId).single();
         
         if (!bank || bank.cash_balance < price) {
@@ -168,39 +170,26 @@ window.actions = {
             return;
         }
 
-        // 2. Deduct Cash
         const { error: bankError } = await state.supabase
             .from('bank_accounts')
             .update({ cash_balance: bank.cash_balance - price })
             .eq('character_id', charId);
 
-        if (bankError) {
-            alert("Erreur transaction bancaire.");
-            return;
-        }
+        if (bankError) { alert("Erreur transaction bancaire."); return; }
 
-        // 3. Add to Inventory (Check existence first)
-        const { data: existingItem } = await state.supabase
-            .from('inventory')
-            .select('*')
-            .eq('character_id', charId)
-            .eq('name', itemName)
-            .maybeSingle();
+        const { data: existingItem } = await state.supabase.from('inventory').select('*').eq('character_id', charId).eq('name', itemName).maybeSingle();
 
         if (existingItem) {
-            // Update Quantity
             await state.supabase.from('inventory').update({ quantity: existingItem.quantity + 1 }).eq('id', existingItem.id);
         } else {
-            // Create New Item
             await state.supabase.from('inventory').insert({
                 character_id: charId,
                 name: itemName,
                 quantity: 1,
-                estimated_value: price // Keep value as bought price
+                estimated_value: price 
             });
         }
 
-        // 4. Log Transaction (Discreetly)
         await state.supabase.from('transactions').insert({
             sender_id: charId,
             amount: price,
@@ -208,15 +197,103 @@ window.actions = {
             description: `Achat Marché Noir: ${itemName}`
         });
 
-        // 5. Refresh
         await fetchBankData(charId);
         alert(`Vous avez acheté: ${itemName}`);
+        render();
+    },
+
+    // HEIST ACTIONS
+    startHeist: (heistId, e) => {
+        e.preventDefault();
+        const data = new FormData(e.target);
+        const groupSize = parseInt(data.get('group_size')) || 1;
+        const heist = HEIST_DATA.find(h => h.id === heistId);
+        
+        if (!heist) return;
+        if (!confirm(`Lancer le braquage : ${heist.name} ?\nDurée: ${heist.time/60} min\nGroupe: ${groupSize} personne(s)\n\nAttention: Ne fermez pas l'onglet.`)) return;
+
+        const startTime = Math.floor(Date.now() / 1000);
+        const endTime = startTime + heist.time;
+
+        state.activeHeist = {
+            id: heistId,
+            name: heist.name,
+            startTime,
+            endTime,
+            totalTime: heist.time,
+            groupSize,
+            rate: heist.rate,
+            min: heist.min,
+            max: heist.max
+        };
+
+        // Start local timer loop
+        state.heistTimerInterval = setInterval(() => {
+            const now = Math.floor(Date.now() / 1000);
+            if (now >= state.activeHeist.endTime) {
+                clearInterval(state.heistTimerInterval);
+                render(); // Trigger "Finished" view
+            } else {
+                render(); // Update UI progress
+            }
+        }, 1000);
+
+        render();
+    },
+
+    finishHeist: async () => {
+        if (!state.activeHeist) return;
+        
+        const h = state.activeHeist;
+        
+        // Logic de réussite
+        const roll = Math.random() * 100;
+        const success = roll <= h.rate;
+        
+        let message = '';
+        
+        if (success) {
+            // Calculate Loot
+            const rawLoot = Math.floor(Math.random() * (h.max - h.min + 1)) + h.min;
+            const myShare = Math.floor(rawLoot / h.groupSize);
+            
+            message = `RÉUSSITE !\n\nL'équipe a sécurisé $${rawLoot.toLocaleString()}.\nVotre part (${h.groupSize} pers) : $${myShare.toLocaleString()}`;
+            
+            // Add Cash
+            const { data: bank } = await state.supabase.from('bank_accounts').select('cash_balance').eq('character_id', state.activeCharacter.id).single();
+            await state.supabase.from('bank_accounts').update({ cash_balance: bank.cash_balance + myShare }).eq('character_id', state.activeCharacter.id);
+            
+            // Log
+            await state.supabase.from('transactions').insert({
+                sender_id: state.activeCharacter.id,
+                amount: myShare,
+                type: 'deposit',
+                description: `Gain Braquage: ${h.name}`
+            });
+
+        } else {
+            message = `ÉCHEC !\n\nL'opération a mal tourné. La police est intervenue et vous avez dû fuir sans le butin.`;
+        }
+        
+        alert(message);
+        
+        // Reset
+        state.activeHeist = null;
+        if (state.heistTimerInterval) clearInterval(state.heistTimerInterval);
+        
+        await fetchBankData(state.activeCharacter.id);
         render();
     },
 
     // Staff Actions
     setStaffTab: (tab) => {
         state.activeStaffTab = tab;
+        state.staffSearchQuery = ''; // Clear search when changing tabs
+        render();
+    },
+    
+    staffSearch: (query) => {
+        state.staffSearchQuery = query;
         render();
     },
 
@@ -231,7 +308,6 @@ window.actions = {
     },
 
     adminDeleteCharacter: async (id, name) => {
-        // Changed to use new permission
         if (!hasPermission('can_manage_characters') && !state.user.isFounder) {
             alert("Permission manquante: Gérer Personnages");
             return;
@@ -241,53 +317,105 @@ window.actions = {
         if (!error) { await fetchAllCharacters(); await fetchPendingApplications(); render(); }
     },
 
-    // Permission Management
-    adminLookupUser: async (e) => {
-        e.preventDefault();
-        const query = new FormData(e.target).get('query');
-        const container = document.getElementById('perm-search-results');
+    // INVENTORY MANAGEMENT ADMIN
+    openInventoryModal: async (charId, charName) => {
+        if (!hasPermission('can_manage_inventory')) return;
         
-        container.innerHTML = '<div class="loader-spinner w-6 h-6 border-2 mx-auto"></div>';
-
-        const results = await searchProfiles(query);
-        state.staffSearchResults = results;
+        // Fetch inventory
+        await fetchInventory(charId); // Updates state.inventory
         
-        actions.renderStaffSearchResults();
+        state.inventoryModal = {
+            isOpen: true,
+            targetId: charId,
+            targetName: charName,
+            items: state.inventory
+        };
+        render();
     },
 
-    renderStaffSearchResults: () => {
-        const container = document.getElementById('perm-search-results');
-        if (!container) return;
+    closeInventoryModal: () => {
+        state.inventoryModal.isOpen = false;
+        render();
+    },
 
-        if (state.staffSearchResults.length === 0) {
-            container.innerHTML = '<p class="text-center text-gray-500 py-4">Aucun utilisateur trouvé.</p>';
+    manageInventoryItem: async (action, itemId, itemName, event = null) => {
+        if (event) event.preventDefault();
+        
+        const targetId = state.inventoryModal.targetId;
+        
+        if (action === 'remove') {
+            if(!confirm("Supprimer l'objet ?")) return;
+            // itemId is the row ID in inventory table
+            await state.supabase.from('inventory').delete().eq('id', itemId);
+        } else if (action === 'add') {
+            const formData = new FormData(event.target);
+            const name = formData.get('item_name');
+            const qty = parseInt(formData.get('quantity'));
+            const value = parseInt(formData.get('value'));
+            
+            await state.supabase.from('inventory').insert({
+                character_id: targetId,
+                name: name,
+                quantity: qty,
+                estimated_value: value
+            });
+        }
+        
+        // Refresh local inventory data
+        await fetchInventory(targetId);
+        state.inventoryModal.items = state.inventory;
+        render();
+    },
+
+    // Permission Management
+    // Updated to Banking Style Search
+    searchProfilesForPerms: async (query) => {
+        const container = document.getElementById('perm-search-dropdown');
+        if (!container) return;
+        
+        if (!query) {
+            container.classList.add('hidden');
+            container.innerHTML = '';
             return;
         }
 
-        container.innerHTML = `
-            <div class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar bg-black/20 rounded-xl p-2 mb-4">
-                ${state.staffSearchResults.map(p => `
-                    <button onclick="actions.selectUserForPerms('${p.id}')" class="w-full text-left p-3 rounded-lg hover:bg-white/10 flex items-center gap-3 transition-colors">
-                        <img src="${p.avatar_url || ''}" class="w-8 h-8 rounded-full bg-gray-700">
-                        <div>
-                            <div class="font-bold text-sm text-white">${p.username}</div>
-                            <div class="text-[10px] text-gray-500">${p.id}</div>
-                        </div>
-                    </button>
-                `).join('')}
-            </div>
-        `;
+        const results = await searchProfiles(query);
+        state.staffPermissionSearchResults = results;
+        
+        if (results.length > 0) {
+             container.innerHTML = results.map(p => `
+                <div onclick="actions.selectUserForPerms('${p.id}')" class="p-3 hover:bg-white/10 cursor-pointer flex items-center gap-3 border-b border-white/5 last:border-0">
+                    <img src="${p.avatar_url || ''}" class="w-8 h-8 rounded-full bg-gray-700">
+                    <div>
+                        <div class="font-bold text-sm text-white">${p.username}</div>
+                        <div class="text-[10px] text-gray-500">${p.id}</div>
+                    </div>
+                </div>
+            `).join('');
+            container.classList.remove('hidden');
+        } else {
+             container.innerHTML = '<div class="p-3 text-xs text-gray-500 italic">Aucun résultat</div>';
+             container.classList.remove('hidden');
+        }
     },
 
     selectUserForPerms: async (userId) => {
         // Find profile in search results or fetch it
-        let profile = state.staffSearchResults.find(p => p.id === userId);
+        let profile = state.staffPermissionSearchResults.find(p => p.id === userId);
+        if(!profile) {
+            // Try staff list
+            profile = state.staffMembers.find(p => p.id === userId);
+        }
         if(!profile) {
             const { data } = await state.supabase.from('profiles').select('*').eq('id', userId).single();
             profile = data;
         }
         
         if (!profile) return;
+        
+        // Hide dropdown
+        const dropdown = document.getElementById('perm-search-dropdown');
+        if(dropdown) dropdown.classList.add('hidden');
 
         actions.renderPermEditor(profile);
     },
@@ -297,8 +425,6 @@ window.actions = {
         if (!container) return;
 
         const currentPerms = profile.permissions || {};
-        
-        // Security Checks
         const isSelf = profile.id === state.user.id;
         const isTargetFounder = CONFIG.ADMIN_IDS.includes(profile.id);
         const isDisabled = isSelf || isTargetFounder;
@@ -311,7 +437,8 @@ window.actions = {
             { k: 'can_approve_characters', l: 'Valider Fiches' },
             { k: 'can_manage_characters', l: 'Gérer Personnages (Suppr.)' },
             { k: 'can_manage_economy', l: 'Gérer Économie' },
-            { k: 'can_manage_staff', l: 'Gérer Staff' }
+            { k: 'can_manage_staff', l: 'Gérer Staff' },
+            { k: 'can_manage_inventory', l: 'Gérer Inventaires' }
         ].map(p => `
             <label class="flex items-center gap-3 p-3 bg-white/5 rounded-lg ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/10'} transition-colors">
                 <input type="checkbox" onchange="actions.updatePermission('${profile.id}', '${p.k}', this.checked)" 
@@ -323,7 +450,7 @@ window.actions = {
         `).join('');
 
         container.innerHTML = `
-            <div class="animate-fade-in bg-white/5 border border-white/5 p-4 rounded-xl">
+            <div class="animate-fade-in bg-white/5 border border-white/5 p-4 rounded-xl mt-4">
                 <div class="flex items-center justify-between mb-4 border-b border-white/5 pb-4">
                     <div class="flex items-center gap-3">
                         <img src="${profile.avatar_url || ''}" class="w-12 h-12 rounded-full border border-white/10">
@@ -340,13 +467,9 @@ window.actions = {
                 </div>
             </div>
         `;
-        
-        // Clear search results to clean up UI
-        document.getElementById('perm-search-results').innerHTML = '';
     },
 
     updatePermission: async (userId, permKey, value) => {
-        // Extra security check before writing
         if (!hasPermission('can_manage_staff')) return;
         if (userId === state.user.id) return alert("Interdit: Modification de soi-même.");
         if (CONFIG.ADMIN_IDS.includes(userId)) return alert("Interdit: Modification fondateur.");
@@ -357,9 +480,8 @@ window.actions = {
         
         await state.supabase.from('profiles').update({ permissions: newPerms }).eq('id', userId);
         
-        // Refresh local lists
         await fetchStaffProfiles();
-        render(); // Re-render to update the staff list on the right
+        render(); 
     },
 
     // Banking Actions
