@@ -1,4 +1,5 @@
 
+
 import { state } from './state.js';
 
 export const loadCharacters = async () => {
@@ -104,4 +105,30 @@ export const fetchBankData = async (charId) => {
         .neq('id', charId);
         
     state.recipientList = recipients || [];
+};
+
+// Patrimoine & Inventory
+export const fetchInventory = async (charId) => {
+    if (!state.supabase) return;
+
+    // 1. Ensure Bank Data is fresh (for Cash & Global total)
+    await fetchBankData(charId);
+
+    // 2. Fetch Physical Inventory
+    const { data: items, error } = await state.supabase
+        .from('inventory')
+        .select('*')
+        .eq('character_id', charId);
+
+    state.inventory = items || [];
+
+    // 3. Calculate Total Wealth (Patrimoine)
+    // Wealth = Bank Balance + Cash Balance + (Item Qty * Item Value)
+    let total = (state.bankAccount.bank_balance || 0) + (state.bankAccount.cash_balance || 0);
+
+    state.inventory.forEach(item => {
+        total += (item.quantity * item.estimated_value);
+    });
+
+    state.patrimonyTotal = total;
 };

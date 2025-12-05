@@ -1,5 +1,7 @@
 
+
 import { state } from '../state.js';
+import { CONFIG } from '../config.js';
 import { hasPermission } from '../utils.js';
 
 export const StaffView = () => {
@@ -10,8 +12,6 @@ export const StaffView = () => {
     let content = '';
 
     // TABS NAVIGATION
-    // Logic: Tabs are visible only if the user has the specific permission
-    // EXCEPTION: 'database' is visible if the user has ANY permission, but buttons inside are restricted
     const tabsHtml = `
         <div class="flex gap-2 mb-8 border-b border-white/10 pb-1 overflow-x-auto custom-scrollbar">
             ${hasPermission('can_approve_characters') ? `
@@ -109,7 +109,6 @@ export const StaffView = () => {
             </div>
         `;
     } else if (state.activeStaffTab === 'database') {
-        // Visible to everyone with ANY perm, but actions are restricted
         const canDelete = hasPermission('can_manage_characters');
         const allChars = state.allCharactersAdmin || [];
         

@@ -1,4 +1,5 @@
 
+
 export const state = {
     user: null, // Données Discord + Permissions
     accessToken: null,
@@ -25,9 +26,14 @@ export const state = {
     filteredRecipients: [], // For search bar
     selectedRecipient: null, // {id, name}
     
+    // Patrimoine (Assets) Data
+    inventory: [],
+    patrimonyTotal: 0,
+    inventoryFilter: '', // For search bar in assets
+    
     // UI State
     currentView: 'login', // login, select, create, hub, access_denied
-    activeHubPanel: 'main', // main, bank, services, illicit, staff
+    activeHubPanel: 'main', // main, bank, services, illicit, staff, assets
     activeStaffTab: 'applications', // applications, database, permissions, economy
     isLoggingIn: false, // UI state for popup login
     

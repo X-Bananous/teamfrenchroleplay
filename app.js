@@ -1,4 +1,5 @@
 
+
 /**
  * TFRP Core Logic
  * Modularized Structure
@@ -13,7 +14,8 @@ import {
     fetchPendingApplications, 
     fetchAllCharacters,
     fetchStaffProfiles,
-    searchProfiles
+    searchProfiles,
+    fetchInventory
 } from './modules/services.js';
 
 // Views
@@ -112,10 +114,16 @@ window.actions = {
 
     setHubPanel: async (panel) => {
         state.activeHubPanel = panel;
+        
+        // Data Fetching based on panel
         if (panel === 'bank' && state.activeCharacter) {
             state.selectedRecipient = null;
             state.filteredRecipients = [];
             await fetchBankData(state.activeCharacter.id);
+        } else if (panel === 'assets' && state.activeCharacter) {
+            // SYNC PATRIMOINE
+            state.inventoryFilter = '';
+            await fetchInventory(state.activeCharacter.id);
         } else if (panel === 'staff') {
             // Default tab based on permission priority
             if (hasPermission('can_approve_characters')) state.activeStaffTab = 'applications';
@@ -129,6 +137,12 @@ window.actions = {
                 fetchStaffProfiles()
             ]);
         }
+        render();
+    },
+
+    // Inventory / Assets Actions
+    filterAssets: (query) => {
+        state.inventoryFilter = query;
         render();
     },
 
@@ -215,6 +229,15 @@ window.actions = {
         if (!container) return;
 
         const currentPerms = profile.permissions || {};
+        
+        // Security Checks
+        const isSelf = profile.id === state.user.id;
+        const isTargetFounder = CONFIG.ADMIN_IDS.includes(profile.id);
+        const isDisabled = isSelf || isTargetFounder;
+        
+        let warningMsg = '';
+        if (isSelf) warningMsg = '<div class="text-xs text-red-400 mt-2 bg-red-500/10 p-2 rounded">Vous ne pouvez pas modifier vos propres permissions.</div>';
+        if (isTargetFounder) warningMsg = '<div class="text-xs text-red-400 mt-2 bg-red-500/10 p-2 rounded">Vous ne pouvez pas modifier les permissions de la Fondation.</div>';
 
         const checkboxes = [
             { k: 'can_approve_characters', l: 'Valider Fiches' },
@@ -222,8 +245,11 @@ window.actions = {
             { k: 'can_manage_economy', l: 'Gérer Économie' },
             { k: 'can_manage_staff', l: 'Gérer Staff' }
         ].map(p => `
-            <label class="flex items-center gap-3 p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition-colors">
-                <input type="checkbox" onchange="actions.updatePermission('${profile.id}', '${p.k}', this.checked)" ${currentPerms[p.k] ? 'checked' : ''} class="w-5 h-5 rounded border-gray-600 text-blue-500 focus:ring-blue-500 bg-gray-700">
+            <label class="flex items-center gap-3 p-3 bg-white/5 rounded-lg ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/10'} transition-colors">
+                <input type="checkbox" onchange="actions.updatePermission('${profile.id}', '${p.k}', this.checked)" 
+                ${currentPerms[p.k] ? 'checked' : ''} 
+                ${isDisabled ? 'disabled' : ''}
+                class="w-5 h-5 rounded border-gray-600 text-blue-500 focus:ring-blue-500 bg-gray-700">
                 <span class="text-white text-sm font-medium">${p.l}</span>
             </label>
         `).join('');
@@ -240,7 +266,8 @@ window.actions = {
                     </div>
                     <button onclick="document.getElementById('perm-editor-container').innerHTML = ''" class="text-gray-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                ${warningMsg}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                     ${checkboxes}
                 </div>
             </div>
@@ -251,7 +278,11 @@ window.actions = {
     },
 
     updatePermission: async (userId, permKey, value) => {
+        // Extra security check before writing
         if (!hasPermission('can_manage_staff')) return;
+        if (userId === state.user.id) return alert("Interdit: Modification de soi-même.");
+        if (CONFIG.ADMIN_IDS.includes(userId)) return alert("Interdit: Modification fondateur.");
+
         const { data: profile } = await state.supabase.from('profiles').select('permissions').eq('id', userId).single();
         const newPerms = { ...(profile.permissions || {}) };
         if (value) newPerms[permKey] = true; else delete newPerms[permKey];
@@ -261,10 +292,6 @@ window.actions = {
         // Refresh local lists
         await fetchStaffProfiles();
         render(); // Re-render to update the staff list on the right
-        
-        // If we are editing the same user, keep the editor open (it will re-render via state logic if we fully re-render, 
-        // but here we just updated DB. Let's manually re-fetch and update editor if needed, 
-        // but for now the checkbox state is locally accurate).
     },
 
     // Banking Actions

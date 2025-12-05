@@ -1,6 +1,8 @@
+
 import { state } from '../state.js';
 import { BankView } from './bank.js';
 import { StaffView } from './staff.js';
+import { AssetsView } from './assets.js';
 import { hasPermission } from '../utils.js';
 
 export const HubView = () => {
@@ -20,6 +22,18 @@ export const HubView = () => {
                     <div class="relative z-10">
                         <h3 class="text-xl font-bold text-white">Ma Banque</h3>
                         <p class="text-sm text-gray-400 mt-1">Solde, Retraits & Virements</p>
+                    </div>
+                </button>
+
+                <!-- Patrimoine Card -->
+                <button onclick="actions.setHubPanel('assets')" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden cursor-pointer border-indigo-500/20">
+                    <div class="absolute inset-0 bg-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div class="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4 group-hover:bg-indigo-500 group-hover:text-white transition-all shadow-[0_0_20px_rgba(99,102,241,0.3)]">
+                        <i data-lucide="gem" class="w-6 h-6"></i>
+                    </div>
+                    <div class="relative z-10">
+                        <h3 class="text-xl font-bold text-white">Patrimoine</h3>
+                        <p class="text-sm text-gray-400 mt-1">Inventaire & Valeur Totale</p>
                     </div>
                 </button>
 
@@ -65,6 +79,8 @@ export const HubView = () => {
         `;
     } else if (state.activeHubPanel === 'bank') {
         content = BankView();
+    } else if (state.activeHubPanel === 'assets') {
+        content = AssetsView();
     } else if (state.activeHubPanel === 'staff') {
         content = StaffView();
     } else {
@@ -108,10 +124,11 @@ export const HubView = () => {
                     </div>
                 </div>
                 
-                <div class="p-4 space-y-2 flex-1">
+                <div class="p-4 space-y-2 flex-1 overflow-y-auto custom-scrollbar">
                     <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 mb-2">Menu Principal</div>
                     ${navItem('main', 'layout-grid', 'Tableau de bord', 'text-blue-400')}
                     ${navItem('bank', 'landmark', 'Ma Banque', 'text-emerald-400')}
+                    ${navItem('assets', 'gem', 'Patrimoine', 'text-indigo-400')}
                     ${navItem('services', 'siren', 'Services Publics', 'text-blue-400')}
                     ${navItem('illicit', 'skull', 'Illégal', 'text-red-400')}
                     
@@ -138,7 +155,10 @@ export const HubView = () => {
             <main class="flex-1 flex flex-col relative overflow-hidden">
                 <header class="h-20 flex items-center justify-between px-8 border-b border-white/5 bg-black/20 backdrop-blur-md z-10">
                     <h1 class="text-xl font-bold text-white capitalize">
-                        ${state.activeHubPanel === 'main' ? 'Los Angeles' : state.activeHubPanel === 'bank' ? 'Banque Nationale' : state.activeHubPanel}
+                        ${state.activeHubPanel === 'main' ? 'Los Angeles' : 
+                          state.activeHubPanel === 'bank' ? 'Banque Nationale' : 
+                          state.activeHubPanel === 'assets' ? 'Gestion de Patrimoine' :
+                          state.activeHubPanel}
                     </h1>
                     <div class="flex items-center gap-4">
                         <div class="bg-black/40 px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
