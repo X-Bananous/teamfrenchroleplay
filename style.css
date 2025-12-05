@@ -5,8 +5,6 @@
     --glass-highlight: rgba(255, 255, 255, 0.05);
     --apple-blue: #0A84FF;
     --apple-blue-hover: #0077ED;
-    --success-green: #30d158;
-    --danger-red: #ff453a;
 }
 
 body {
@@ -175,26 +173,6 @@ body {
     border: 1px solid rgba(234, 179, 8, 0.3);
     text-shadow: 0 0 10px rgba(234, 179, 8, 0.5);
 }
-
-.badge-perm {
-    font-size: 0.65rem;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.1);
-    color: #aaa;
-    border: 1px solid rgba(255,255,255,0.05);
-}
-.badge-perm.active {
-    background: rgba(10, 132, 255, 0.2);
-    color: #60a5fa;
-    border-color: rgba(10, 132, 255, 0.3);
-}
-
-/* Bank Styles */
-.text-money-pos { color: var(--success-green); }
-.text-money-neg { color: var(--danger-red); }
-.bg-money-pos { background-color: rgba(48, 209, 88, 0.1); color: var(--success-green); }
-.bg-money-neg { background-color: rgba(255, 69, 58, 0.1); color: var(--danger-red); }
 
 /* Utility */
 .text-glow {
