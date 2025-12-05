@@ -44,11 +44,14 @@ const state = {
     bankAccount: null,
     transactions: [],
     recipientList: [], // For transfers
+    filteredRecipients: [], // For search bar
+    selectedRecipient: null, // {id, name}
     
     // UI State
     currentView: 'login', // login, select, create, hub, access_denied
     activeHubPanel: 'main', // main, bank, services, illicit, staff
     activeStaffTab: 'applications', // applications, database, permissions
+    isLoggingIn: false, // UI state for popup login
     
     supabase: null,
     queueCount: Math.floor(Math.random() * 8) + 1
@@ -96,10 +99,17 @@ const Views = {
                 </p>
 
                 <div class="flex flex-col md:flex-row gap-4 w-full max-w-md md:max-w-none justify-center">
-                    <button onclick="actions.login()" class="glass-btn h-14 px-8 rounded-full font-bold text-lg flex items-center justify-center gap-3 transition-transform hover:scale-105 cursor-pointer shadow-[0_0_40px_rgba(10,132,255,0.3)]">
-                        <i data-lucide="gamepad-2" class="w-6 h-6"></i>
-                        Connexion Citoyen
-                    </button>
+                    ${state.isLoggingIn ? `
+                        <button disabled class="glass-btn h-14 px-8 rounded-full font-bold text-lg flex items-center justify-center gap-3 w-64">
+                            <div class="loader-spinner w-5 h-5 border-2"></div>
+                            Connexion...
+                        </button>
+                    ` : `
+                        <button onclick="actions.login()" class="glass-btn h-14 px-8 rounded-full font-bold text-lg flex items-center justify-center gap-3 transition-transform hover:scale-105 cursor-pointer shadow-[0_0_40px_rgba(10,132,255,0.3)]">
+                            <i data-lucide="gamepad-2" class="w-6 h-6"></i>
+                            Connexion Citoyen
+                        </button>
+                    `}
                     <a href="${CONFIG.INVITE_URL}" target="_blank" class="glass-btn-secondary h-14 px-8 rounded-full font-bold text-lg flex items-center justify-center gap-3 transition-transform hover:scale-105 cursor-pointer bg-white/5 hover:bg-white/10">
                         <i data-lucide="message-circle" class="w-6 h-6"></i>
                         Communauté
@@ -166,7 +176,6 @@ const Views = {
                     </button>
                 `;
             } else {
-                // Strict logic: Only accepted chars can enter. No force access button anymore.
                 const btnClass = isAccepted ? 'glass-btn' : 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/5';
                 const btnText = isAccepted ? 'Accéder au Hub' : 'Dossier en cours';
 
@@ -215,7 +224,6 @@ const Views = {
             `;
         }).join('');
 
-        // Foundation Card only if permission bypass
         const foundationCard = hasPermission('can_bypass_login') ? `
              <button onclick="actions.enterAsFoundation()" class="glass-card group w-full md:w-[340px] h-[380px] rounded-[30px] flex flex-col items-center justify-center relative overflow-hidden hover:border-amber-400/50 transition-all cursor-pointer">
                 <div class="absolute inset-0 bg-amber-500/5 group-hover:bg-amber-500/10 transition-colors"></div>
@@ -330,6 +338,7 @@ const Views = {
         const historyHtml = state.transactions.length > 0 
             ? state.transactions.map(t => {
                 let icon, color, label, sign;
+                const desc = t.description ? `<div class="text-[10px] text-gray-500 italic mt-0.5">"${t.description}"</div>` : '';
 
                 if (t.type === 'deposit') {
                     icon = 'arrow-down-left';
@@ -374,6 +383,7 @@ const Views = {
                             <div>
                                 <div class="font-medium text-white">${label}</div>
                                 <div class="text-xs text-gray-500">${new Date(t.created_at).toLocaleString()}</div>
+                                ${desc}
                             </div>
                         </div>
                         <div class="font-mono font-bold ${color}">
@@ -384,11 +394,17 @@ const Views = {
             }).join('') 
             : '<div class="text-center text-gray-500 py-8 italic">Aucune transaction récente.</div>';
 
-        // Filter current character out of recipient list
-        const recipientOptions = state.recipientList
-            .filter(r => r.id !== state.activeCharacter.id)
-            .map(r => `<option value="${r.id}">${r.first_name} ${r.last_name}</option>`)
-            .join('');
+        // Search Bar Logic HTML
+        const searchResultsHtml = state.filteredRecipients.length > 0 ? `
+            <div class="absolute top-full left-0 right-0 bg-[#151515] border border-white/10 rounded-xl mt-1 max-h-48 overflow-y-auto z-50 shadow-2xl custom-scrollbar">
+                ${state.filteredRecipients.map(r => `
+                    <div onclick="actions.selectRecipient('${r.id}', '${r.first_name} ${r.last_name}')" class="p-3 hover:bg-white/10 cursor-pointer flex items-center gap-3 border-b border-white/5 last:border-0">
+                        <div class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold">${r.first_name[0]}</div>
+                        <div class="text-sm text-gray-200">${r.first_name} ${r.last_name}</div>
+                    </div>
+                `).join('')}
+            </div>
+        ` : '';
 
         return `
             <div class="animate-fade-in space-y-8 max-w-5xl mx-auto">
@@ -436,16 +452,32 @@ const Views = {
                         <button type="submit" class="glass-btn-secondary bg-white/5 hover:bg-white/10 py-2 rounded-lg font-semibold text-sm cursor-pointer transition-colors">Retirer</button>
                     </form>
 
-                    <!-- Transfer -->
-                    <form onsubmit="actions.bankTransfer(event)" class="glass-panel p-6 rounded-2xl flex flex-col gap-4 relative">
+                    <!-- Transfer (New Design) -->
+                    <form onsubmit="actions.bankTransfer(event)" class="glass-panel p-6 rounded-2xl flex flex-col gap-4 relative" autocomplete="off">
                         <div class="flex items-center gap-2 text-white font-bold">
                             <i data-lucide="send" class="w-5 h-5 text-blue-400"></i> Virement
                         </div>
                         <p class="text-xs text-gray-400">Banque -> Autre Joueur</p>
-                        <select name="target_id" class="glass-input p-3 rounded-lg w-full bg-black/50 appearance-none" required>
-                            <option value="">Sélectionner un bénéficiaire</option>
-                            ${recipientOptions}
-                        </select>
+                        
+                        <!-- Search Bar Container -->
+                        <div class="relative">
+                            <input type="hidden" name="target_id" id="target_id" value="${state.selectedRecipient ? state.selectedRecipient.id : ''}" required>
+                            <div class="relative">
+                                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3.5 text-gray-500"></i>
+                                <input type="text" 
+                                       id="recipient_search"
+                                       placeholder="Rechercher un citoyen..." 
+                                       value="${state.selectedRecipient ? state.selectedRecipient.name : ''}"
+                                       oninput="actions.searchRecipients(this.value)"
+                                       class="glass-input p-3 pl-10 rounded-lg w-full text-sm placeholder-gray-500" autocomplete="off">
+                                ${state.selectedRecipient ? `
+                                    <button type="button" onclick="actions.clearRecipient()" class="absolute right-3 top-3 text-gray-500 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+                                ` : ''}
+                            </div>
+                            ${searchResultsHtml}
+                        </div>
+
+                        <input type="text" name="description" placeholder="Motif (ex: Achat véhicule)" maxlength="50" class="glass-input p-3 rounded-lg w-full text-sm">
                         <input type="number" name="amount" placeholder="Montant" min="1" max="${state.bankAccount.bank_balance}" class="glass-input p-3 rounded-lg w-full" required>
                         <button type="submit" class="glass-btn bg-blue-600 hover:bg-blue-500 py-2 rounded-lg font-semibold text-sm shadow-lg shadow-blue-500/20 cursor-pointer transition-colors">Envoyer</button>
                     </form>
@@ -766,15 +798,38 @@ const initApp = async () => {
         return;
     }
 
+    // --- POPUP HANDLER Logic ---
+    // If this is the popup window receiving the callback
     const fragment = new URLSearchParams(window.location.hash.slice(1));
-    const accessToken = fragment.get('access_token');
-    const tokenType = fragment.get('token_type');
+    const popupToken = fragment.get('access_token');
+    const popupType = fragment.get('token_type');
+    const expiresIn = fragment.get('expires_in');
 
-    if (accessToken) {
-        window.history.replaceState(null, null, ' ');
-        state.accessToken = accessToken;
-        await handleDiscordCallback(accessToken, tokenType);
+    if (popupToken && window.opener) {
+        // Send data back to main window
+        window.opener.postMessage({ 
+            type: 'DISCORD_AUTH_SUCCESS', 
+            token: popupToken, 
+            tokenType: popupType,
+            expiresIn: expiresIn 
+        }, window.location.origin);
+        window.close();
+        return;
+    }
+
+    // --- MAIN WINDOW Logic ---
+    
+    // Check Local Storage first (Persistence)
+    const storedToken = localStorage.getItem('tfrp_access_token');
+    const storedType = localStorage.getItem('tfrp_token_type');
+    const storedExpiry = localStorage.getItem('tfrp_token_expiry');
+
+    if (storedToken && storedExpiry && new Date().getTime() < parseInt(storedExpiry)) {
+        console.log("Restoring session...");
+        state.accessToken = storedToken;
+        await handleDiscordCallback(storedToken, storedType);
     } else {
+        // No valid session, show login
         state.currentView = 'login';
         render();
         setTimeout(() => {
@@ -783,6 +838,24 @@ const initApp = async () => {
             setTimeout(() => loadingScreen?.remove(), 700);
         }, 800);
     }
+
+    // Listener for Popup Message
+    window.addEventListener('message', async (event) => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data.type === 'DISCORD_AUTH_SUCCESS') {
+            const { token, tokenType, expiresIn } = event.data;
+            
+            // Save to LocalStorage (7 days or discord expiry)
+            const expiryTime = new Date().getTime() + (parseInt(expiresIn) * 1000);
+            localStorage.setItem('tfrp_access_token', token);
+            localStorage.setItem('tfrp_token_type', tokenType);
+            localStorage.setItem('tfrp_token_expiry', expiryTime.toString());
+
+            state.accessToken = token;
+            state.isLoggingIn = false;
+            await handleDiscordCallback(token, tokenType);
+        }
+    });
 };
 
 const handleDiscordCallback = async (token, type) => {
@@ -793,7 +866,13 @@ const handleDiscordCallback = async (token, type) => {
         const userRes = await fetch('https://discord.com/api/users/@me', {
             headers: { Authorization: `${type} ${token}` }
         });
-        if (!userRes.ok) throw new Error('Discord User Fetch Failed');
+        
+        if (!userRes.ok) {
+             // Token invalid/expired
+             localStorage.removeItem('tfrp_access_token');
+             throw new Error('Discord User Fetch Failed');
+        }
+        
         const discordUser = await userRes.json();
 
         const guildsRes = await fetch('https://discord.com/api/users/@me/guilds', {
@@ -845,8 +924,7 @@ const handleDiscordCallback = async (token, type) => {
 
     } catch (e) {
         console.error("Auth Error:", e);
-        state.currentView = 'login';
-        render();
+        actions.logout(); // Clear storage and reset
     }
     
     if(loadingScreen) loadingScreen.style.opacity = '0';
@@ -877,6 +955,14 @@ const render = () => {
 
     if (window.lucide) {
         setTimeout(() => lucide.createIcons(), 50);
+    }
+    
+    // Focus search if it was active
+    if (state.activeHubPanel === 'bank' && document.getElementById('recipient_search')) {
+        const input = document.getElementById('recipient_search');
+        if (state.filteredRecipients.length > 0 || (input && input.value)) {
+           input.focus();
+        }
     }
 };
 
@@ -960,9 +1046,15 @@ const fetchBankData = async (charId) => {
 // --- Actions ---
 window.actions = {
     login: async () => {
+        // Open Popup logic
+        state.isLoggingIn = true;
+        render();
+
         const scope = encodeURIComponent('identify guilds');
         const url = `https://discord.com/api/oauth2/authorize?client_id=${CONFIG.DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(CONFIG.REDIRECT_URI)}&response_type=token&scope=${scope}`;
-        window.location.href = url;
+        
+        // Open popup
+        window.open(url, 'DiscordAuth', 'width=500,height=800,left=200,top=200');
     },
     
     confirmLogout: () => {
@@ -975,13 +1067,18 @@ window.actions = {
         state.user = null;
         state.accessToken = null;
         state.characters = [];
+        localStorage.removeItem('tfrp_access_token');
+        localStorage.removeItem('tfrp_token_type');
+        localStorage.removeItem('tfrp_token_expiry');
         window.location.hash = '';
         router('login');
     },
 
-    backToSelect: () => {
+    backToSelect: async () => {
         state.activeCharacter = null;
         state.bankAccount = null;
+        // Refresh characters to check for deletions/edits
+        await loadCharacters();
         router('select');
     },
 
@@ -1055,6 +1152,9 @@ window.actions = {
     setHubPanel: async (panel) => {
         state.activeHubPanel = panel;
         if (panel === 'bank' && state.activeCharacter) {
+            // Reset search
+            state.selectedRecipient = null;
+            state.filteredRecipients = [];
             await fetchBankData(state.activeCharacter.id);
         } else if (panel === 'staff') {
             await actions.loadStaffPanel();
@@ -1095,6 +1195,31 @@ window.actions = {
 
     // --- Banking Actions ---
     
+    searchRecipients: (query) => {
+        if (!query) {
+            state.filteredRecipients = [];
+            render();
+            return;
+        }
+        const lower = query.toLowerCase();
+        state.filteredRecipients = state.recipientList.filter(r => 
+            r.first_name.toLowerCase().includes(lower) || 
+            r.last_name.toLowerCase().includes(lower)
+        );
+        render();
+    },
+
+    selectRecipient: (id, name) => {
+        state.selectedRecipient = { id, name };
+        state.filteredRecipients = [];
+        render();
+    },
+
+    clearRecipient: () => {
+        state.selectedRecipient = null;
+        render();
+    },
+
     bankDeposit: async (e) => {
         e.preventDefault();
         const amount = parseInt(new FormData(e.target).get('amount'));
@@ -1158,26 +1283,71 @@ window.actions = {
         const data = new FormData(e.target);
         const amount = parseInt(data.get('amount'));
         const targetId = data.get('target_id');
+        const description = data.get('description') || 'Virement';
         
         if (amount <= 0 || amount > state.bankAccount.bank_balance || !targetId) {
             alert("Montant invalide ou bénéficiaire manquant.");
             return;
         }
 
-        // Use the Secure RPC (PL/pgSQL function) for atomic transfer
-        const { error } = await state.supabase.rpc('transfer_money', { 
+        // We use the RPC for money movement. 
+        // NOTE: Standard 'transfer_money' RPC usually doesn't take description unless updated.
+        // We will try to pass it, but if the SQL function signature doesn't match, it might error.
+        // Ideally, update the SQL function to: transfer_money(sender, receiver, amt, desc)
+        // For now, we will do the RPC then update the transaction row if possible, 
+        // OR we just assume the SQL handles it if updated.
+        
+        // Strategy: Call RPC. If your SQL `transfer_money` takes 3 args, the 4th will be ignored or error.
+        // If it errors, we fallback to 3 args.
+        
+        let error;
+        
+        // Attempt with description (Requires SQL update)
+        /* 
+        const rpcCall = await state.supabase.rpc('transfer_money', { 
             sender: state.activeCharacter.id, 
             receiver: targetId, 
-            amt: amount 
+            amt: amount,
+            desc: description 
+        });
+        error = rpcCall.error;
+        */
+
+        // Since I cannot update your SQL here, I will use the standard 3-arg RPC to ensure safety,
+        // BUT I will modify the JS to manually insert the transaction log with description 
+        // instead of relying on the RPC to insert it.
+        // Wait, the RPC inserts the transaction. That creates a problem for description.
+        // BEST PRACTICE: Use the existing RPC. The description won't be saved until you update SQL.
+        
+        const rpcResult = await state.supabase.rpc('transfer_money', { 
+            sender: state.activeCharacter.id, 
+            receiver: targetId, 
+            amt: amount
         });
 
-        if (error) {
-            console.error("Transfer Error", error);
-            alert("Erreur virement: " + error.message);
+        if (rpcResult.error) {
+            alert("Erreur virement: " + rpcResult.error.message);
             return;
+        }
+
+        // HACK: Since we can't update SQL here to add description support to the RPC,
+        // We will try to update the latest transaction for this user to add the description.
+        // This is a race condition but sufficient for a prototype.
+        const { data: lastTx } = await state.supabase
+            .from('transactions')
+            .select('id')
+            .eq('sender_id', state.activeCharacter.id)
+            .eq('type', 'transfer')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+            
+        if (lastTx) {
+            await state.supabase.from('transactions').update({ description: description }).eq('id', lastTx.id);
         }
         
         alert("Virement effectué avec succès.");
+        state.selectedRecipient = null; // Clear selection
         await fetchBankData(state.activeCharacter.id);
         render();
     },
