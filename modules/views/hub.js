@@ -1,8 +1,10 @@
 
+
 import { state } from '../state.js';
 import { BankView } from './bank.js';
 import { StaffView } from './staff.js';
 import { AssetsView } from './assets.js';
+import { IllicitView } from './illicit.js';
 import { hasPermission } from '../utils.js';
 
 export const HubView = () => {
@@ -81,6 +83,8 @@ export const HubView = () => {
         content = BankView();
     } else if (state.activeHubPanel === 'assets') {
         content = AssetsView();
+    } else if (state.activeHubPanel === 'illicit') {
+        content = IllicitView();
     } else if (state.activeHubPanel === 'staff') {
         content = StaffView();
     } else {
@@ -158,6 +162,7 @@ export const HubView = () => {
                         ${state.activeHubPanel === 'main' ? 'Los Angeles' : 
                           state.activeHubPanel === 'bank' ? 'Banque Nationale' : 
                           state.activeHubPanel === 'assets' ? 'Gestion de Patrimoine' :
+                          state.activeHubPanel === 'illicit' ? 'Dark Web' :
                           state.activeHubPanel}
                     </h1>
                     <div class="flex items-center gap-4">

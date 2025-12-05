@@ -31,6 +31,9 @@ export const state = {
     patrimonyTotal: 0,
     inventoryFilter: '', // For search bar in assets
     
+    // Illicit Data
+    activeIllicitTab: 'light', // light, medium, heavy, sniper
+    
     // UI State
     currentView: 'login', // login, select, create, hub, access_denied
     activeHubPanel: 'main', // main, bank, services, illicit, staff, assets

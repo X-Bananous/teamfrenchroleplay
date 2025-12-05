@@ -124,6 +124,9 @@ window.actions = {
             // SYNC PATRIMOINE
             state.inventoryFilter = '';
             await fetchInventory(state.activeCharacter.id);
+        } else if (panel === 'illicit' && state.activeCharacter) {
+            // Need Bank data for cash check
+            await fetchBankData(state.activeCharacter.id);
         } else if (panel === 'staff') {
             // Default tab based on permission priority
             if (hasPermission('can_approve_characters')) state.activeStaffTab = 'applications';
@@ -143,6 +146,71 @@ window.actions = {
     // Inventory / Assets Actions
     filterAssets: (query) => {
         state.inventoryFilter = query;
+        render();
+    },
+
+    // Illicit / Black Market Actions
+    setIllicitTab: (tab) => {
+        state.activeIllicitTab = tab;
+        render();
+    },
+
+    buyIllegalItem: async (itemName, price) => {
+        if (!confirm(`Acheter ${itemName} pour $${price} en espèces ?`)) return;
+
+        const charId = state.activeCharacter.id;
+
+        // 1. Re-Verify Balance (Backend Fetch)
+        const { data: bank } = await state.supabase.from('bank_accounts').select('cash_balance').eq('character_id', charId).single();
+        
+        if (!bank || bank.cash_balance < price) {
+            alert("Erreur: Pas assez d'argent liquide.");
+            return;
+        }
+
+        // 2. Deduct Cash
+        const { error: bankError } = await state.supabase
+            .from('bank_accounts')
+            .update({ cash_balance: bank.cash_balance - price })
+            .eq('character_id', charId);
+
+        if (bankError) {
+            alert("Erreur transaction bancaire.");
+            return;
+        }
+
+        // 3. Add to Inventory (Check existence first)
+        const { data: existingItem } = await state.supabase
+            .from('inventory')
+            .select('*')
+            .eq('character_id', charId)
+            .eq('name', itemName)
+            .maybeSingle();
+
+        if (existingItem) {
+            // Update Quantity
+            await state.supabase.from('inventory').update({ quantity: existingItem.quantity + 1 }).eq('id', existingItem.id);
+        } else {
+            // Create New Item
+            await state.supabase.from('inventory').insert({
+                character_id: charId,
+                name: itemName,
+                quantity: 1,
+                estimated_value: price // Keep value as bought price
+            });
+        }
+
+        // 4. Log Transaction (Discreetly)
+        await state.supabase.from('transactions').insert({
+            sender_id: charId,
+            amount: price,
+            type: 'withdraw',
+            description: `Achat Marché Noir: ${itemName}`
+        });
+
+        // 5. Refresh
+        await fetchBankData(charId);
+        alert(`Vous avez acheté: ${itemName}`);
         render();
     },
 
