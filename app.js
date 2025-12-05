@@ -55,7 +55,7 @@ const state = {
     // UI State
     currentView: 'login', // login, select, create, hub, access_denied
     activeHubPanel: 'main', // main, bank, services, illicit, staff
-    activeStaffTab: 'applications', // applications, database, economy, permissions
+    activeStaffTab: 'applications', // applications, database, permissions
     isLoggingIn: false, // UI state for popup login
     
     supabase: null,
@@ -514,11 +514,6 @@ const Views = {
                         Base de Données
                     </button>
                 ` : ''}
-                 ${hasPermission('can_manage_economy') ? `
-                    <button onclick="actions.setStaffTab('economy')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${state.activeStaffTab === 'economy' ? 'bg-white/10 text-white border-b-2 border-emerald-500' : 'text-gray-400 hover:text-white'}">
-                        Économie
-                    </button>
-                ` : ''}
                 ${hasPermission('can_manage_staff') ? `
                     <button onclick="actions.setStaffTab('permissions')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${state.activeStaffTab === 'permissions' ? 'bg-white/10 text-white border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}">
                         Permissions
@@ -601,6 +596,13 @@ const Views = {
         } else if (state.activeStaffTab === 'database' && hasPermission('can_delete_characters')) {
             const allChars = state.allCharactersAdmin || [];
             content = `
+                <div class="flex justify-end mb-4">
+                     ${hasPermission('can_manage_economy') ? `
+                        <button onclick="actions.openEconomyModal('ALL')" class="glass-btn-secondary px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">
+                            <i data-lucide="globe" class="w-4 h-4"></i> Économie Globale (Tous)
+                        </button>
+                    ` : ''}
+                </div>
                 <div class="glass-panel overflow-hidden rounded-xl">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-white/5 text-xs uppercase text-gray-400 font-semibold tracking-wider">
@@ -624,6 +626,11 @@ const Views = {
                                         </span>
                                     </td>
                                     <td class="p-4 text-right flex justify-end gap-2">
+                                        ${hasPermission('can_manage_economy') ? `
+                                            <button onclick="actions.openEconomyModal('${c.id}', '${c.first_name} ${c.last_name}')" class="text-gray-500 hover:text-emerald-400 p-1" title="Gérer l'argent">
+                                                <i data-lucide="coins" class="w-4 h-4"></i>
+                                            </button>
+                                        ` : ''}
                                         <button onclick="actions.adminDeleteCharacter('${c.id}', '${c.first_name} ${c.last_name}')" class="text-gray-500 hover:text-red-400 p-1">
                                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                                         </button>
@@ -634,55 +641,6 @@ const Views = {
                     </table>
                 </div>
             `;
-        } else if (state.activeStaffTab === 'economy' && hasPermission('can_manage_economy')) {
-             const allChars = state.allCharactersAdmin || [];
-             content = `
-                <div class="mb-8">
-                    <div class="glass-card p-6 rounded-2xl border-emerald-500/20 flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div>
-                            <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                                <i data-lucide="globe" class="w-5 h-5 text-emerald-400"></i>
-                                Économie Globale
-                            </h3>
-                            <p class="text-sm text-gray-400 mt-1">
-                                Appliquer un ajustement financier (Bonus ou Impôt) à <strong>tous les joueurs</strong> du serveur.
-                            </p>
-                        </div>
-                        <button onclick="actions.openEconomyModal('ALL')" class="glass-btn bg-emerald-600 hover:bg-emerald-500 px-6 py-3 rounded-xl font-bold flex items-center gap-2 whitespace-nowrap">
-                            <i data-lucide="settings-2" class="w-4 h-4"></i>
-                            Gérer l'Économie Globale
-                        </button>
-                    </div>
-                </div>
-
-                <div class="glass-panel overflow-hidden rounded-xl">
-                    <div class="p-4 border-b border-white/5 bg-white/5">
-                        <h4 class="font-bold text-white text-sm uppercase tracking-wide">Gestion Individuelle</h4>
-                    </div>
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-white/5 text-xs uppercase text-gray-400 font-semibold tracking-wider">
-                            <tr>
-                                <th class="p-4 border-b border-white/10">Citoyen</th>
-                                <th class="p-4 border-b border-white/10">Propriétaire</th>
-                                <th class="p-4 border-b border-white/10 text-right">Gérer</th>
-                            </tr>
-                        </thead>
-                        <tbody class="text-sm divide-y divide-white/5">
-                            ${allChars.map(c => `
-                                <tr class="hover:bg-white/5 transition-colors">
-                                    <td class="p-4 font-medium text-white">${c.first_name} ${c.last_name}</td>
-                                    <td class="p-4 text-blue-300">@${c.discord_username}</td>
-                                    <td class="p-4 text-right">
-                                        <button onclick="actions.openEconomyModal('${c.id}', '${c.first_name} ${c.last_name}')" class="glass-btn-secondary px-3 py-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/20 border-emerald-500/20 text-xs font-bold inline-flex items-center gap-2 transition-all">
-                                            <i data-lucide="coins" class="w-3 h-3"></i> Modifier
-                                        </button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-             `;
         } else if (state.activeStaffTab === 'permissions' && hasPermission('can_manage_staff')) {
             content = `
                 <div class="glass-panel p-6 rounded-xl mb-6">
@@ -716,3 +674,860 @@ const Views = {
     },
 
     Hub: () => {
+        let content = '';
+        
+        if (state.activeHubPanel === 'main') {
+            const showStaffCard = Object.keys(state.user.permissions || {}).length > 0 || state.user.isFounder;
+
+            content = `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
+                    <!-- Bank Card -->
+                    <button onclick="actions.setHubPanel('bank')" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden cursor-pointer border-emerald-500/20">
+                        <div class="absolute inset-0 bg-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                            <i data-lucide="landmark" class="w-6 h-6"></i>
+                        </div>
+                        <div class="relative z-10">
+                            <h3 class="text-xl font-bold text-white">Ma Banque</h3>
+                            <p class="text-sm text-gray-400 mt-1">Solde, Retraits & Virements</p>
+                        </div>
+                    </button>
+
+                    <!-- Services -->
+                    <button onclick="actions.setHubPanel('services')" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden cursor-pointer">
+                        <div class="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400 mb-4 group-hover:bg-blue-500 group-hover:text-white transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)]">
+                            <i data-lucide="siren" class="w-6 h-6"></i>
+                        </div>
+                        <div class="relative z-10">
+                            <h3 class="text-xl font-bold text-white">Urgence & Services</h3>
+                            <p class="text-sm text-gray-400 mt-1">Police, Sheriff, Fire & DOT</p>
+                        </div>
+                    </button>
+
+                    <!-- Illicit -->
+                    <button onclick="actions.setHubPanel('illicit')" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden cursor-pointer">
+                        <div class="absolute inset-0 bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center text-red-400 mb-4 group-hover:bg-red-500 group-hover:text-white transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)]">
+                            <i data-lucide="skull" class="w-6 h-6"></i>
+                        </div>
+                        <div class="relative z-10">
+                            <h3 class="text-xl font-bold text-white">Monde Criminel</h3>
+                            <p class="text-sm text-gray-400 mt-1">Mafias, Gangs & Marché Noir</p>
+                        </div>
+                    </button>
+
+                    <!-- Staff Card (Conditional) -->
+                    ${showStaffCard ? `
+                    <button onclick="actions.setHubPanel('staff')" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden border-purple-500/20 cursor-pointer">
+                        <div class="absolute inset-0 bg-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 mb-4 group-hover:bg-purple-500 group-hover:text-white transition-all shadow-[0_0_20px_rgba(168,85,247,0.3)]">
+                            <i data-lucide="shield-alert" class="w-6 h-6"></i>
+                        </div>
+                        <div class="relative z-10">
+                            <h3 class="text-xl font-bold text-white">Administration</h3>
+                            <p class="text-sm text-gray-400 mt-1">Gestion Joueurs & Whitelist</p>
+                            ${state.pendingApplications.length > 0 ? `<div class="absolute top-0 right-0 mt-6 mr-6 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>` : ''}
+                        </div>
+                    </button>
+                    ` : ''}
+                </div>
+            `;
+        } else if (state.activeHubPanel === 'bank') {
+            content = Views.Bank();
+        } else if (state.activeHubPanel === 'staff') {
+            content = Views.Staff();
+        } else {
+             content = `
+                <div class="flex flex-col items-center justify-center h-[50vh] text-center animate-fade-in">
+                    <div class="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6 animate-pulse">
+                        <i data-lucide="cone" class="w-10 h-10 text-gray-400"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white mb-2">En Développement</h2>
+                    <p class="text-gray-400 max-w-md">Le module <span class="text-blue-400 capitalize">${state.activeHubPanel}</span> est en cours de construction.</p>
+                    <button onclick="actions.setHubPanel('main')" class="mt-8 glass-btn-secondary px-6 py-2 rounded-xl text-sm">Retour</button>
+                </div>
+            `;
+        }
+
+        // Sidebar Navigation Logic
+        const navItem = (panel, icon, label, color = 'text-white') => {
+            const isActive = state.activeHubPanel === panel;
+            const bgClass = isActive ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white';
+            return `
+                <button onclick="actions.setHubPanel('${panel}')" class="w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center gap-3 cursor-pointer ${bgClass}">
+                    <i data-lucide="${icon}" class="w-5 h-5 ${isActive ? color : ''}"></i>
+                    ${label}
+                </button>
+            `;
+        };
+
+        const hasStaffAccess = Object.keys(state.user.permissions || {}).length > 0 || state.user.isFounder;
+
+        return `
+            <div class="flex h-full w-full bg-[#050505]">
+                <!-- Updated Sidebar -->
+                <aside class="w-72 glass-panel border-y-0 border-l-0 flex flex-col relative z-20">
+                    <div class="p-6 border-b border-white/5">
+                        <div class="flex items-center gap-3">
+                            <img src="${state.user.avatar}" class="w-10 h-10 rounded-full border border-white/10">
+                            <div class="overflow-hidden">
+                                <h3 class="font-bold text-white truncate text-sm">${state.user.username}</h3>
+                                <p class="text-xs text-blue-400 font-semibold uppercase tracking-wider">${state.activeCharacter.first_name} ${state.activeCharacter.last_name}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 space-y-2 flex-1">
+                        <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 mb-2">Menu Principal</div>
+                        ${navItem('main', 'layout-grid', 'Tableau de bord', 'text-blue-400')}
+                        ${navItem('bank', 'landmark', 'Ma Banque', 'text-emerald-400')}
+                        ${navItem('services', 'siren', 'Services Publics', 'text-blue-400')}
+                        ${navItem('illicit', 'skull', 'Illégal', 'text-red-400')}
+                        
+                        ${hasStaffAccess ? `
+                            <div class="my-4 border-t border-white/5"></div>
+                            <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 mb-2">Staff</div>
+                            ${navItem('staff', 'shield-alert', 'Administration', 'text-purple-400')}
+                        ` : ''}
+                    </div>
+
+                    <div class="p-4 bg-black/20 border-t border-white/5">
+                         <div class="grid grid-cols-2 gap-2">
+                             <button onclick="actions.backToSelect()" class="w-full glass-btn-secondary py-2 rounded-lg text-xs text-gray-300 hover:bg-white/10 cursor-pointer flex items-center justify-center gap-1" title="Changer de personnage">
+                                <i data-lucide="users" class="w-3 h-3"></i> Persos
+                             </button>
+                             <button onclick="actions.confirmLogout()" class="w-full glass-btn-secondary py-2 rounded-lg text-xs text-red-300 hover:bg-red-900/20 border-red-500/10 cursor-pointer flex items-center justify-center gap-1">
+                                <i data-lucide="log-out" class="w-3 h-3"></i> Sortir
+                             </button>
+                         </div>
+                    </div>
+                </aside>
+
+                <!-- Content -->
+                <main class="flex-1 flex flex-col relative overflow-hidden">
+                    <header class="h-20 flex items-center justify-between px-8 border-b border-white/5 bg-black/20 backdrop-blur-md z-10">
+                        <h1 class="text-xl font-bold text-white capitalize">
+                            ${state.activeHubPanel === 'main' ? 'Los Angeles' : state.activeHubPanel === 'bank' ? 'Banque Nationale' : state.activeHubPanel}
+                        </h1>
+                        <div class="flex items-center gap-4">
+                            ${hasPermission('can_bypass_login') ? `
+                                <div class="badge-foundation px-3 py-1 rounded-full border flex items-center gap-2 shadow-lg">
+                                    <i data-lucide="eye" class="w-3 h-3"></i>
+                                    <span class="text-xs font-bold">FONDATION</span>
+                                </div>
+                            `: ''}
+                            <div class="bg-black/40 px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
+                                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                <span class="text-xs font-mono text-gray-300">En Ligne</span>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div class="flex-1 overflow-y-auto p-8 relative z-0 custom-scrollbar">
+                        ${content}
+                    </div>
+                </main>
+            </div>
+        `;
+    }
+};
+
+// --- Logic & Init ---
+const initApp = async () => {
+    const appEl = document.getElementById('app');
+    const loadingScreen = document.getElementById('loading-screen');
+    
+    if (!appEl) return;
+
+    if (window.supabase) {
+        state.supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+    } else {
+        console.error("Supabase lib not loaded");
+        return;
+    }
+
+    // --- POPUP HANDLER Logic ---
+    // If this is the popup window receiving the callback
+    const fragment = new URLSearchParams(window.location.hash.slice(1));
+    const popupToken = fragment.get('access_token');
+    const popupType = fragment.get('token_type');
+    const expiresIn = fragment.get('expires_in');
+
+    if (popupToken && window.opener) {
+        // Send data back to main window
+        window.opener.postMessage({ 
+            type: 'DISCORD_AUTH_SUCCESS', 
+            token: popupToken, 
+            tokenType: popupType,
+            expiresIn: expiresIn 
+        }, window.location.origin);
+        window.close();
+        return;
+    }
+
+    // --- MAIN WINDOW Logic ---
+    
+    // Check Local Storage first (Persistence)
+    const storedToken = localStorage.getItem('tfrp_access_token');
+    const storedType = localStorage.getItem('tfrp_token_type');
+    const storedExpiry = localStorage.getItem('tfrp_token_expiry');
+
+    if (storedToken && storedExpiry && new Date().getTime() < parseInt(storedExpiry)) {
+        console.log("Restoring session...");
+        state.accessToken = storedToken;
+        await handleDiscordCallback(storedToken, storedType);
+    } else {
+        // No valid session, show login
+        state.currentView = 'login';
+        render();
+        setTimeout(() => {
+            if(loadingScreen) loadingScreen.style.opacity = '0';
+            appEl.classList.remove('opacity-0');
+            setTimeout(() => loadingScreen?.remove(), 700);
+        }, 800);
+    }
+
+    // Listener for Popup Message
+    window.addEventListener('message', async (event) => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data.type === 'DISCORD_AUTH_SUCCESS') {
+            const { token, tokenType, expiresIn } = event.data;
+            
+            // Save to LocalStorage (7 days or discord expiry)
+            const expiryTime = new Date().getTime() + (parseInt(expiresIn) * 1000);
+            localStorage.setItem('tfrp_access_token', token);
+            localStorage.setItem('tfrp_token_type', tokenType);
+            localStorage.setItem('tfrp_token_expiry', expiryTime.toString());
+
+            state.accessToken = token;
+            state.isLoggingIn = false;
+            await handleDiscordCallback(token, tokenType);
+        }
+    });
+};
+
+const handleDiscordCallback = async (token, type) => {
+    const appEl = document.getElementById('app');
+    const loadingScreen = document.getElementById('loading-screen');
+    
+    try {
+        const userRes = await fetch('https://discord.com/api/users/@me', {
+            headers: { Authorization: `${type} ${token}` }
+        });
+        
+        if (!userRes.ok) {
+             // Token invalid/expired
+             localStorage.removeItem('tfrp_access_token');
+             throw new Error('Discord User Fetch Failed');
+        }
+        
+        const discordUser = await userRes.json();
+
+        const guildsRes = await fetch('https://discord.com/api/users/@me/guilds', {
+             headers: { Authorization: `${type} ${token}` }
+        });
+        if (!guildsRes.ok) throw new Error('Discord Guilds Fetch Failed');
+        const guilds = await guildsRes.json();
+        
+        const isMember = guilds.some(g => g.id === CONFIG.REQUIRED_GUILD_ID);
+
+        if (!isMember) {
+            state.currentView = 'access_denied';
+            render();
+            if(loadingScreen) loadingScreen.style.opacity = '0';
+            appEl.classList.remove('opacity-0');
+            setTimeout(() => loadingScreen?.remove(), 700);
+            return;
+        }
+
+        // Founders check
+        let isFounder = CONFIG.ADMIN_IDS.includes(discordUser.id);
+
+        const updates = {
+            id: discordUser.id,
+            username: discordUser.username,
+            avatar_url: `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`,
+            updated_at: new Date(),
+        };
+
+        await state.supabase.from('profiles').upsert(updates);
+        
+        // Fetch extended profile for permissions
+        const { data: profile } = await state.supabase
+            .from('profiles')
+            .select('permissions')
+            .eq('id', discordUser.id)
+            .single();
+
+        state.user = {
+            id: discordUser.id,
+            username: discordUser.global_name || discordUser.username,
+            avatar: `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`,
+            permissions: profile?.permissions || {},
+            isFounder: isFounder
+        };
+
+        await loadCharacters();
+        router(state.characters.length > 0 ? 'select' : 'create');
+
+    } catch (e) {
+        console.error("Auth Error:", e);
+        actions.logout(); // Clear storage and reset
+    }
+    
+    if(loadingScreen) loadingScreen.style.opacity = '0';
+    appEl.classList.remove('opacity-0');
+    setTimeout(() => loadingScreen?.remove(), 700);
+};
+
+const router = (viewName) => {
+    state.currentView = viewName;
+    render();
+};
+
+const render = () => {
+    const app = document.getElementById('app');
+    if (!app) return;
+
+    let htmlContent = '';
+    switch (state.currentView) {
+        case 'login': htmlContent = Views.Login(); break;
+        case 'access_denied': htmlContent = Views.AccessDenied(); break;
+        case 'select': htmlContent = Views.CharacterSelect(); break;
+        case 'create': htmlContent = Views.CharacterCreate(); break;
+        case 'hub': htmlContent = Views.Hub(); break;
+        default: htmlContent = Views.Login();
+    }
+
+    app.innerHTML = htmlContent;
+
+    if (window.lucide) {
+        setTimeout(() => lucide.createIcons(), 50);
+    }
+    
+    // Focus search if it was active and not empty
+    if (state.activeHubPanel === 'bank' && document.getElementById('recipient_search')) {
+        const input = document.getElementById('recipient_search');
+        if (state.filteredRecipients.length > 0 || (input && input.value)) {
+           // If we re-render, we lose focus. This logic helps but the separate container update (see searchRecipients) is better.
+        }
+    }
+};
+
+// --- Data Services ---
+
+const loadCharacters = async () => {
+    if (!state.user || !state.supabase) return;
+    const { data, error } = await state.supabase
+        .from('characters')
+        .select('*')
+        .eq('user_id', state.user.id);
+    state.characters = error ? [] : data;
+};
+
+// Staff Data Fetchers
+const fetchCharactersWithProfiles = async (statusFilter = null) => {
+    if (!state.user || !state.supabase) return [];
+    let query = state.supabase.from('characters').select('*');
+    if (statusFilter) query = query.eq('status', statusFilter);
+    const { data: chars } = await query;
+    if (!chars || chars.length === 0) return [];
+
+    const userIds = [...new Set(chars.map(c => c.user_id))];
+    const { data: profiles } = await state.supabase.from('profiles').select('id, username, avatar_url').in('id', userIds);
+
+    return chars.map(char => {
+        const profile = profiles?.find(p => p.id === char.user_id);
+        return {
+            ...char,
+            discord_username: profile ? profile.username : 'Unknown',
+            discord_avatar: profile ? profile.avatar_url : null
+        };
+    });
+};
+
+const fetchPendingApplications = async () => {
+    state.pendingApplications = await fetchCharactersWithProfiles('pending');
+};
+
+const fetchAllCharacters = async () => {
+    state.allCharactersAdmin = await fetchCharactersWithProfiles(null);
+};
+
+// Economy Services
+const fetchBankData = async (charId) => {
+    // 1. Get Account
+    // Use maybeSingle to prevent error on 0 rows
+    let { data: bank, error } = await state.supabase
+        .from('bank_accounts')
+        .select('*')
+        .eq('character_id', charId)
+        .maybeSingle(); 
+    
+    // Create if doesn't exist (First time login)
+    if (!bank) {
+        const { data: newBank } = await state.supabase.from('bank_accounts').insert([{ character_id: charId, bank_balance: 5000, cash_balance: 500 }]).select().single();
+        bank = newBank;
+    }
+    state.bankAccount = bank;
+
+    // 2. Get Transactions (Sender OR Receiver)
+    const { data: txs } = await state.supabase
+        .from('transactions')
+        .select('*')
+        .or(`sender_id.eq.${charId},receiver_id.eq.${charId}`)
+        .order('created_at', { ascending: false })
+        .limit(20);
+    
+    state.transactions = txs || [];
+
+    // 3. Get Potential Recipients (All accepted characters, except myself)
+    const { data: recipients } = await state.supabase
+        .from('characters')
+        .select('id, first_name, last_name')
+        .eq('status', 'accepted')
+        .neq('id', charId);
+        
+    state.recipientList = recipients || [];
+};
+
+// --- Actions ---
+window.actions = {
+    login: async () => {
+        // Open Popup logic
+        state.isLoggingIn = true;
+        render();
+
+        const scope = encodeURIComponent('identify guilds');
+        const url = `https://discord.com/api/oauth2/authorize?client_id=${CONFIG.DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(CONFIG.REDIRECT_URI)}&response_type=token&scope=${scope}`;
+        
+        // Open popup
+        window.open(url, 'DiscordAuth', 'width=500,height=800,left=200,top=200');
+    },
+    
+    confirmLogout: () => {
+        if(confirm("Voulez-vous vraiment vous déconnecter ?")) {
+            window.actions.logout();
+        }
+    },
+
+    logout: async () => {
+        state.user = null;
+        state.accessToken = null;
+        state.characters = [];
+        localStorage.removeItem('tfrp_access_token');
+        localStorage.removeItem('tfrp_token_type');
+        localStorage.removeItem('tfrp_token_expiry');
+        window.location.hash = '';
+        router('login');
+    },
+
+    backToSelect: async () => {
+        state.activeCharacter = null;
+        state.bankAccount = null;
+        // Refresh characters to check for deletions/edits
+        await loadCharacters();
+        router('select');
+    },
+
+    selectCharacter: async (charId) => {
+        const char = state.characters.find(c => c.id === charId);
+        if (char && char.status === 'accepted') {
+            state.activeCharacter = char;
+            state.activeHubPanel = 'main';
+            router('hub');
+        }
+    },
+
+    enterAsFoundation: () => {
+        if (!hasPermission('can_bypass_login')) return;
+        state.activeCharacter = {
+            id: 'foundation-001',
+            first_name: 'La',
+            last_name: 'Fondation',
+            age: 99,
+            birth_place: 'Classified',
+            status: 'accepted'
+        };
+        // Mock Bank for Foundation
+        state.bankAccount = { bank_balance: 999999999, cash_balance: 999999999 };
+        state.transactions = [];
+        state.activeHubPanel = 'main';
+        router('hub');
+    },
+
+    goToCreate: () => {
+        if (state.characters.length >= CONFIG.MAX_CHARS) return;
+        router('create');
+    },
+
+    submitCharacter: async (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target));
+        const today = new Date();
+        const birthDate = new Date(data.birth_date);
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+
+        if (age < 13) { alert('Personnage trop jeune (13+).'); return; }
+
+        const newChar = {
+            first_name: data.first_name,
+            last_name: data.last_name,
+            birth_date: data.birth_date,
+            birth_place: data.birth_place,
+            age: age,
+            status: 'pending',
+            user_id: state.user.id
+        };
+
+        const { error } = await state.supabase.from('characters').insert([newChar]);
+        if (!error) {
+            await loadCharacters();
+            router('select');
+        } else {
+            alert("Erreur création: " + error.message);
+        }
+    },
+
+    deleteCharacter: async (charId) => {
+        if(!confirm("Supprimer ce personnage ?")) return;
+        const { error } = await state.supabase.from('characters').delete().eq('id', charId).eq('user_id', state.user.id);
+        if (!error) { await loadCharacters(); router('select'); }
+    },
+
+    setHubPanel: async (panel) => {
+        state.activeHubPanel = panel;
+        if (panel === 'bank' && state.activeCharacter) {
+            // Reset search
+            state.selectedRecipient = null;
+            state.filteredRecipients = [];
+            await fetchBankData(state.activeCharacter.id);
+        } else if (panel === 'staff') {
+            await actions.loadStaffPanel();
+        }
+        render();
+    },
+
+    loadStaffPanel: async () => {
+        state.activeStaffTab = 'applications';
+        await Promise.all([
+            fetchPendingApplications(),
+            fetchAllCharacters()
+        ]);
+        render();
+    },
+    
+    setStaffTab: (tab) => {
+        state.activeStaffTab = tab;
+        render();
+    },
+
+    decideApplication: async (id, status) => {
+        if (!hasPermission('can_approve_characters')) return;
+        const { error } = await state.supabase.from('characters').update({ status: status }).eq('id', id);
+        if (!error) {
+            await fetchPendingApplications();
+            await fetchAllCharacters();
+            render(); 
+        }
+    },
+
+    adminDeleteCharacter: async (id, name) => {
+        if (!hasPermission('can_delete_characters')) return;
+        if (!confirm(`ADMIN: Supprimer "${name}" ?`)) return;
+        const { error } = await state.supabase.from('characters').delete().eq('id', id);
+        if (!error) { await fetchAllCharacters(); await fetchPendingApplications(); render(); }
+    },
+
+    // --- Banking Actions ---
+    
+    searchRecipients: (query) => {
+        // IMPORTANT: We do NOT call render() here anymore to prevent input blur/refresh
+        const container = document.getElementById('search-results-container');
+        if (!container) return;
+
+        if (!query) {
+            state.filteredRecipients = [];
+            container.classList.add('hidden');
+            container.innerHTML = '';
+            return;
+        }
+
+        const lower = query.toLowerCase();
+        state.filteredRecipients = state.recipientList.filter(r => 
+            r.first_name.toLowerCase().includes(lower) || 
+            r.last_name.toLowerCase().includes(lower)
+        );
+
+        if (state.filteredRecipients.length > 0) {
+            container.innerHTML = state.filteredRecipients.map(r => `
+                <div onclick="actions.selectRecipient('${r.id}', '${r.first_name} ${r.last_name}')" class="p-3 hover:bg-white/10 cursor-pointer flex items-center gap-3 border-b border-white/5 last:border-0">
+                    <div class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold">${r.first_name[0]}</div>
+                    <div class="text-sm text-gray-200">${r.first_name} ${r.last_name}</div>
+                </div>
+            `).join('');
+            container.classList.remove('hidden');
+        } else {
+            container.classList.add('hidden');
+        }
+    },
+
+    selectRecipient: (id, name) => {
+        state.selectedRecipient = { id, name };
+        state.filteredRecipients = [];
+        render(); // Here we render to update the input value state in the full view
+    },
+
+    clearRecipient: () => {
+        state.selectedRecipient = null;
+        render();
+    },
+
+    bankDeposit: async (e) => {
+        e.preventDefault();
+        const amount = parseInt(new FormData(e.target).get('amount'));
+        if (amount <= 0 || amount > state.bankAccount.cash_balance) return;
+
+        const charId = state.activeCharacter.id;
+
+        // DB Updates (Not transactional but sequential - okay for prototype)
+        // 1. Update Account
+        const { error } = await state.supabase
+            .from('bank_accounts')
+            .update({
+                bank_balance: state.bankAccount.bank_balance + amount,
+                cash_balance: state.bankAccount.cash_balance - amount
+            })
+            .eq('character_id', charId);
+        
+        if (error) { alert("Erreur dépôt"); return; }
+
+        // 2. Log Transaction
+        await state.supabase.from('transactions').insert({
+            sender_id: charId,
+            amount: amount,
+            type: 'deposit'
+        });
+
+        await fetchBankData(charId);
+        render();
+    },
+
+    bankWithdraw: async (e) => {
+        e.preventDefault();
+        const amount = parseInt(new FormData(e.target).get('amount'));
+        if (amount <= 0 || amount > state.bankAccount.bank_balance) return;
+
+        const charId = state.activeCharacter.id;
+
+        // DB Updates
+        const { error } = await state.supabase
+            .from('bank_accounts')
+            .update({
+                bank_balance: state.bankAccount.bank_balance - amount,
+                cash_balance: state.bankAccount.cash_balance + amount
+            })
+            .eq('character_id', charId);
+
+        if (error) { alert("Erreur retrait"); return; }
+        
+        await state.supabase.from('transactions').insert({
+            sender_id: charId,
+            amount: amount,
+            type: 'withdraw'
+        });
+
+        await fetchBankData(charId);
+        render();
+    },
+
+    bankTransfer: async (e) => {
+        e.preventDefault();
+        const data = new FormData(e.target);
+        const amount = parseInt(data.get('amount'));
+        const targetId = data.get('target_id');
+        const description = data.get('description') || 'Virement';
+        
+        if (amount <= 0 || amount > state.bankAccount.bank_balance || !targetId) {
+            alert("Montant invalide ou bénéficiaire manquant.");
+            return;
+        }
+        
+        const rpcResult = await state.supabase.rpc('transfer_money', { 
+            sender: state.activeCharacter.id, 
+            receiver: targetId, 
+            amt: amount
+        });
+
+        if (rpcResult.error) {
+            alert("Erreur virement: " + rpcResult.error.message);
+            return;
+        }
+
+        // Add description update hack
+        const { data: lastTx } = await state.supabase
+            .from('transactions')
+            .select('id')
+            .eq('sender_id', state.activeCharacter.id)
+            .eq('type', 'transfer')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+            
+        if (lastTx) {
+            await state.supabase.from('transactions').update({ description: description }).eq('id', lastTx.id);
+        }
+        
+        alert("Virement effectué avec succès.");
+        state.selectedRecipient = null; // Clear selection
+        await fetchBankData(state.activeCharacter.id);
+        render();
+    },
+
+    // --- Staff Permission Logic ---
+
+    adminLookupUser: async (e) => {
+        e.preventDefault();
+        const id = new FormData(e.target).get('discord_id');
+        const container = document.getElementById('perm-editor-container');
+        
+        container.innerHTML = '<div class="loader-spinner w-6 h-6 border-2"></div>';
+
+        const { data: profile } = await state.supabase.from('profiles').select('*').eq('id', id).single();
+        
+        if (!profile) {
+            container.innerHTML = '<p class="text-red-400">Utilisateur introuvable.</p>';
+            return;
+        }
+
+        const currentPerms = profile.permissions || {};
+
+        const checkboxes = [
+            { k: 'can_approve_characters', l: 'Valider Fiches' },
+            { k: 'can_delete_characters', l: 'Supprimer Fiches' },
+            { k: 'can_manage_economy', l: 'Gérer Économie' },
+            { k: 'can_manage_staff', l: 'Gérer Staff' },
+            { k: 'can_bypass_login', l: 'Bypass Login (Fondation)' }
+        ].map(p => `
+            <label class="flex items-center gap-3 p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10">
+                <input type="checkbox" onchange="actions.updatePermission('${id}', '${p.k}', this.checked)" ${currentPerms[p.k] ? 'checked' : ''} class="w-5 h-5 rounded border-gray-600 text-blue-500 focus:ring-blue-500 bg-gray-700">
+                <span class="text-white text-sm font-medium">${p.l}</span>
+            </label>
+        `).join('');
+
+        container.innerHTML = `
+            <div class="flex items-center gap-4 mb-4">
+                <img src="${profile.avatar_url || ''}" class="w-10 h-10 rounded-full">
+                <span class="font-bold text-white">${profile.username}</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                ${checkboxes}
+            </div>
+        `;
+    },
+
+    updatePermission: async (userId, permKey, value) => {
+        if (!hasPermission('can_manage_staff')) return;
+
+        // Fetch current to merge
+        const { data: profile } = await state.supabase.from('profiles').select('permissions').eq('id', userId).single();
+        const newPerms = { ...(profile.permissions || {}) };
+        
+        if (value) newPerms[permKey] = true;
+        else delete newPerms[permKey];
+
+        await state.supabase.from('profiles').update({ permissions: newPerms }).eq('id', userId);
+    },
+
+    cancelCreate: () => {
+        router('select');
+    },
+    
+    // --- ADVANCED ECONOMY MANAGEMENT ---
+    
+    openEconomyModal: (targetId, targetName = null) => {
+        state.economyModal = { isOpen: true, targetId, targetName };
+        render();
+    },
+    
+    closeEconomyModal: () => {
+        state.economyModal = { isOpen: false, targetId: null, targetName: null };
+        render();
+    },
+    
+    executeEconomyAction: async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const mode = formData.get('mode'); // 'fixed' or 'percent'
+        const amountVal = parseFloat(formData.get('amount'));
+        const action = e.submitter.value; // 'add' or 'remove'
+        
+        if (isNaN(amountVal) || amountVal <= 0) return alert("Montant invalide.");
+
+        const targetId = state.economyModal.targetId;
+        const isGlobal = targetId === 'ALL';
+        
+        if (isGlobal && !confirm(`CONFIRMATION: Vous allez modifier l'économie de TOUS les joueurs (${action} ${amountVal}${mode === 'percent' ? '%' : '$'}). Continuer ?`)) return;
+
+        // Determine multiplier or addition value
+        // Note: For percent, we read as integer percentage (e.g. 10 for 10%)
+        
+        let bankAccountsToUpdate = [];
+        
+        // Fetch accounts
+        if (isGlobal) {
+            const { data, error } = await state.supabase.from('bank_accounts').select('*');
+            if (error) return alert("Erreur fetch global: " + error.message);
+            bankAccountsToUpdate = data;
+        } else {
+             const { data, error } = await state.supabase.from('bank_accounts').select('*').eq('character_id', targetId).maybeSingle();
+             if (data) bankAccountsToUpdate = [data];
+             else return alert("Compte introuvable pour ce personnage.");
+        }
+
+        let updatedCount = 0;
+
+        // Process Update (Loop is safest without SQL triggers for complex percent logic)
+        for (const account of bankAccountsToUpdate) {
+            let newBalance = Number(account.bank_balance);
+            
+            if (mode === 'fixed') {
+                if (action === 'add') newBalance += amountVal;
+                else newBalance -= amountVal;
+            } else {
+                // Percentage
+                const delta = newBalance * (amountVal / 100);
+                if (action === 'add') newBalance += delta;
+                else newBalance -= delta;
+            }
+            
+            newBalance = Math.round(newBalance); // Keep integers
+
+            // Log Transaction
+            await state.supabase.from('transactions').insert({
+                sender_id: null,
+                receiver_id: account.character_id,
+                amount: (action === 'remove' ? -1 : 1) * (mode === 'fixed' ? amountVal : 0), // If percent, log 0 or generic, hard to track exact amount in generic log without more logic
+                type: 'admin_adjustment',
+                description: `Staff Global: ${action} ${amountVal} ${mode}`
+            });
+            
+            const { error } = await state.supabase.from('bank_accounts').update({ bank_balance: newBalance }).eq('id', account.id);
+            if (!error) updatedCount++;
+        }
+
+        alert(`Opération terminée. ${updatedCount} comptes mis à jour.`);
+        actions.closeEconomyModal();
+        await fetchAllCharacters(); // Refresh list to update any visible stats if added later
+        render();
+    }
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
