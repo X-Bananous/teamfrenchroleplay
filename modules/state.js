@@ -17,6 +17,12 @@ export const state = {
     staffSearchQuery: '', 
     staffPermissionSearchResults: [], // Dropdown results for permission tab
     
+    // Modals Data
+    ui: {
+        modal: { isOpen: false, type: null, data: null }, // Generic modal (confirm, alert, custom)
+        toasts: []
+    },
+
     economyModal: { 
         isOpen: false,
         targetId: null, // ID character or 'ALL'
@@ -41,11 +47,13 @@ export const state = {
     inventory: [],
     patrimonyTotal: 0,
     inventoryFilter: '', // For search bar in assets
+    idCardModalOpen: false, // For viewing ID
     
     // Illicit Data
     activeIllicitTab: 'light', // light, medium, heavy, sniper, heists
-    activeHeist: null, // { type, endTime, loot, groupSize }
-    heistTimerInterval: null,
+    activeHeistLobby: null, // SYNC: Data from 'heist_lobbies' table
+    heistMembers: [], // SYNC: Data from 'heist_members'
+    availableHeistPartners: [], // For inviting
     
     // UI State
     currentView: 'login', // login, select, create, hub, access_denied
