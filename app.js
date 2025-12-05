@@ -39,6 +39,11 @@ const state = {
     // Staff Data
     pendingApplications: [],
     allCharactersAdmin: [],
+    economyModal: { // New state for economy management
+        isOpen: false,
+        targetId: null, // ID character or 'ALL'
+        targetName: null
+    },
     
     // Economy Data
     bankAccount: null,
@@ -394,18 +399,9 @@ const Views = {
             }).join('') 
             : '<div class="text-center text-gray-500 py-8 italic">Aucune transaction récente.</div>';
 
-        // Search Bar Logic HTML
-        const searchResultsHtml = state.filteredRecipients.length > 0 ? `
-            <div class="absolute top-full left-0 right-0 bg-[#151515] border border-white/10 rounded-xl mt-1 max-h-48 overflow-y-auto z-50 shadow-2xl custom-scrollbar">
-                ${state.filteredRecipients.map(r => `
-                    <div onclick="actions.selectRecipient('${r.id}', '${r.first_name} ${r.last_name}')" class="p-3 hover:bg-white/10 cursor-pointer flex items-center gap-3 border-b border-white/5 last:border-0">
-                        <div class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold">${r.first_name[0]}</div>
-                        <div class="text-sm text-gray-200">${r.first_name} ${r.last_name}</div>
-                    </div>
-                `).join('')}
-            </div>
-        ` : '';
-
+        // NOTE: We don't render the results directly here to avoid re-render flicker. 
+        // We render an empty container that JS updates.
+        
         return `
             <div class="animate-fade-in space-y-8 max-w-5xl mx-auto">
                 <!-- Header Balance -->
@@ -474,7 +470,10 @@ const Views = {
                                     <button type="button" onclick="actions.clearRecipient()" class="absolute right-3 top-3 text-gray-500 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
                                 ` : ''}
                             </div>
-                            ${searchResultsHtml}
+                            <!-- Container for dynamic results -->
+                            <div id="search-results-container" class="absolute top-full left-0 right-0 bg-[#151515] border border-white/10 rounded-xl mt-1 max-h-48 overflow-y-auto z-50 shadow-2xl custom-scrollbar hidden">
+                                <!-- JS inserts content here -->
+                            </div>
                         </div>
 
                         <input type="text" name="description" placeholder="Motif (ex: Achat véhicule)" maxlength="50" class="glass-input p-3 rounded-lg w-full text-sm">
@@ -497,7 +496,6 @@ const Views = {
     },
 
     Staff: () => {
-        // Only render if some staff permission exists
         const hasAnyPerm = Object.keys(state.user.permissions || {}).length > 0 || state.user.isFounder;
         if (!hasAnyPerm) return `<div class="p-8 text-red-500">Accès interdit.</div>`;
 
@@ -523,6 +521,49 @@ const Views = {
                 ` : ''}
             </div>
         `;
+
+        // MODAL ECONOMY HTML
+        let economyModalHtml = '';
+        if (state.economyModal.isOpen && hasPermission('can_manage_economy')) {
+            economyModalHtml = `
+                <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="actions.closeEconomyModal()"></div>
+                    <div class="glass-panel w-full max-w-md p-6 rounded-2xl relative z-10 animate-slide-up shadow-2xl shadow-emerald-500/10">
+                        <h3 class="text-xl font-bold text-white mb-1">Gestion Économique</h3>
+                        <p class="text-xs text-emerald-400 uppercase tracking-widest mb-6">
+                            ${state.economyModal.targetId === 'ALL' ? 'Action Globale (Tous les joueurs)' : state.economyModal.targetName}
+                        </p>
+
+                        <form onsubmit="actions.executeEconomyAction(event)" class="space-y-4">
+                            <div class="flex bg-white/5 p-1 rounded-lg">
+                                <label class="flex-1 text-center cursor-pointer">
+                                    <input type="radio" name="mode" value="fixed" checked class="peer sr-only">
+                                    <span class="block py-2 text-sm font-medium rounded-md text-gray-400 peer-checked:bg-emerald-600 peer-checked:text-white transition-all">Montant Fixe</span>
+                                </label>
+                                <label class="flex-1 text-center cursor-pointer">
+                                    <input type="radio" name="mode" value="percent" class="peer sr-only">
+                                    <span class="block py-2 text-sm font-medium rounded-md text-gray-400 peer-checked:bg-blue-600 peer-checked:text-white transition-all">Pourcentage %</span>
+                                </label>
+                            </div>
+
+                            <input type="number" name="amount" placeholder="Valeur" min="1" class="glass-input w-full p-3 rounded-xl" required>
+
+                            <div class="grid grid-cols-2 gap-4 pt-2">
+                                <button type="submit" name="action" value="add" class="glass-btn bg-emerald-600 hover:bg-emerald-500 py-3 rounded-xl font-bold flex items-center justify-center gap-2">
+                                    <i data-lucide="plus" class="w-4 h-4"></i> Ajouter
+                                </button>
+                                <button type="submit" name="action" value="remove" class="glass-btn bg-red-600 hover:bg-red-500 py-3 rounded-xl font-bold flex items-center justify-center gap-2">
+                                    <i data-lucide="minus" class="w-4 h-4"></i> Retirer
+                                </button>
+                            </div>
+                        </form>
+                        <button onclick="actions.closeEconomyModal()" class="absolute top-4 right-4 text-gray-500 hover:text-white">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
 
         // CONTENT
         if (state.activeStaffTab === 'applications' && hasPermission('can_approve_characters')) {
@@ -555,6 +596,13 @@ const Views = {
         } else if (state.activeStaffTab === 'database' && hasPermission('can_delete_characters')) {
             const allChars = state.allCharactersAdmin || [];
             content = `
+                <div class="flex justify-end mb-4">
+                     ${hasPermission('can_manage_economy') ? `
+                        <button onclick="actions.openEconomyModal('ALL')" class="glass-btn-secondary px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">
+                            <i data-lucide="globe" class="w-4 h-4"></i> Économie Globale (Tous)
+                        </button>
+                    ` : ''}
+                </div>
                 <div class="glass-panel overflow-hidden rounded-xl">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-white/5 text-xs uppercase text-gray-400 font-semibold tracking-wider">
@@ -579,8 +627,8 @@ const Views = {
                                     </td>
                                     <td class="p-4 text-right flex justify-end gap-2">
                                         ${hasPermission('can_manage_economy') ? `
-                                            <button onclick="actions.adminMoneyAdjust('${c.id}')" class="text-gray-500 hover:text-green-400 p-1" title="Eco Mod">
-                                                <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+                                            <button onclick="actions.openEconomyModal('${c.id}', '${c.first_name} ${c.last_name}')" class="text-gray-500 hover:text-emerald-400 p-1" title="Gérer l'argent">
+                                                <i data-lucide="coins" class="w-4 h-4"></i>
                                             </button>
                                         ` : ''}
                                         <button onclick="actions.adminDeleteCharacter('${c.id}', '${c.first_name} ${c.last_name}')" class="text-gray-500 hover:text-red-400 p-1">
@@ -611,7 +659,7 @@ const Views = {
         }
 
         return `
-            <div class="animate-fade-in max-w-5xl mx-auto">
+            <div class="animate-fade-in max-w-5xl mx-auto relative">
                 <div class="flex items-center gap-3 mb-6">
                     <div class="p-2 bg-purple-500/20 rounded-lg text-purple-400">
                         <i data-lucide="shield-alert" class="w-6 h-6"></i>
@@ -620,6 +668,7 @@ const Views = {
                 </div>
                 ${tabsHtml}
                 ${content}
+                ${economyModalHtml}
             </div>
         `;
     },
@@ -957,11 +1006,11 @@ const render = () => {
         setTimeout(() => lucide.createIcons(), 50);
     }
     
-    // Focus search if it was active
+    // Focus search if it was active and not empty
     if (state.activeHubPanel === 'bank' && document.getElementById('recipient_search')) {
         const input = document.getElementById('recipient_search');
         if (state.filteredRecipients.length > 0 || (input && input.value)) {
-           input.focus();
+           // If we re-render, we lose focus. This logic helps but the separate container update (see searchRecipients) is better.
         }
     }
 };
@@ -1196,23 +1245,40 @@ window.actions = {
     // --- Banking Actions ---
     
     searchRecipients: (query) => {
+        // IMPORTANT: We do NOT call render() here anymore to prevent input blur/refresh
+        const container = document.getElementById('search-results-container');
+        if (!container) return;
+
         if (!query) {
             state.filteredRecipients = [];
-            render();
+            container.classList.add('hidden');
+            container.innerHTML = '';
             return;
         }
+
         const lower = query.toLowerCase();
         state.filteredRecipients = state.recipientList.filter(r => 
             r.first_name.toLowerCase().includes(lower) || 
             r.last_name.toLowerCase().includes(lower)
         );
-        render();
+
+        if (state.filteredRecipients.length > 0) {
+            container.innerHTML = state.filteredRecipients.map(r => `
+                <div onclick="actions.selectRecipient('${r.id}', '${r.first_name} ${r.last_name}')" class="p-3 hover:bg-white/10 cursor-pointer flex items-center gap-3 border-b border-white/5 last:border-0">
+                    <div class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold">${r.first_name[0]}</div>
+                    <div class="text-sm text-gray-200">${r.first_name} ${r.last_name}</div>
+                </div>
+            `).join('');
+            container.classList.remove('hidden');
+        } else {
+            container.classList.add('hidden');
+        }
     },
 
     selectRecipient: (id, name) => {
         state.selectedRecipient = { id, name };
         state.filteredRecipients = [];
-        render();
+        render(); // Here we render to update the input value state in the full view
     },
 
     clearRecipient: () => {
@@ -1289,35 +1355,6 @@ window.actions = {
             alert("Montant invalide ou bénéficiaire manquant.");
             return;
         }
-
-        // We use the RPC for money movement. 
-        // NOTE: Standard 'transfer_money' RPC usually doesn't take description unless updated.
-        // We will try to pass it, but if the SQL function signature doesn't match, it might error.
-        // Ideally, update the SQL function to: transfer_money(sender, receiver, amt, desc)
-        // For now, we will do the RPC then update the transaction row if possible, 
-        // OR we just assume the SQL handles it if updated.
-        
-        // Strategy: Call RPC. If your SQL `transfer_money` takes 3 args, the 4th will be ignored or error.
-        // If it errors, we fallback to 3 args.
-        
-        let error;
-        
-        // Attempt with description (Requires SQL update)
-        /* 
-        const rpcCall = await state.supabase.rpc('transfer_money', { 
-            sender: state.activeCharacter.id, 
-            receiver: targetId, 
-            amt: amount,
-            desc: description 
-        });
-        error = rpcCall.error;
-        */
-
-        // Since I cannot update your SQL here, I will use the standard 3-arg RPC to ensure safety,
-        // BUT I will modify the JS to manually insert the transaction log with description 
-        // instead of relying on the RPC to insert it.
-        // Wait, the RPC inserts the transaction. That creates a problem for description.
-        // BEST PRACTICE: Use the existing RPC. The description won't be saved until you update SQL.
         
         const rpcResult = await state.supabase.rpc('transfer_money', { 
             sender: state.activeCharacter.id, 
@@ -1330,9 +1367,7 @@ window.actions = {
             return;
         }
 
-        // HACK: Since we can't update SQL here to add description support to the RPC,
-        // We will try to update the latest transaction for this user to add the description.
-        // This is a race condition but sufficient for a prototype.
+        // Add description update hack
         const { data: lastTx } = await state.supabase
             .from('transactions')
             .select('id')
@@ -1411,51 +1446,83 @@ window.actions = {
         router('select');
     },
     
-    adminMoneyAdjust: async (charId) => {
-        const amountStr = prompt("Montant à ajouter au compte (ou négatif pour retirer) :");
-        if (!amountStr) return;
-        const amount = parseInt(amountStr);
-        if (isNaN(amount)) return;
+    // --- ADVANCED ECONOMY MANAGEMENT ---
+    
+    openEconomyModal: (targetId, targetName = null) => {
+        state.economyModal = { isOpen: true, targetId, targetName };
+        render();
+    },
+    
+    closeEconomyModal: () => {
+        state.economyModal = { isOpen: false, targetId: null, targetName: null };
+        render();
+    },
+    
+    executeEconomyAction: async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const mode = formData.get('mode'); // 'fixed' or 'percent'
+        const amountVal = parseFloat(formData.get('amount'));
+        const action = e.submitter.value; // 'add' or 'remove'
+        
+        if (isNaN(amountVal) || amountVal <= 0) return alert("Montant invalide.");
 
-        // 1. Get current bank
-        const { data: bank, error: bankError } = await state.supabase
-            .from('bank_accounts')
-            .select('id, bank_balance')
-            .eq('character_id', charId)
-            .maybeSingle();
+        const targetId = state.economyModal.targetId;
+        const isGlobal = targetId === 'ALL';
+        
+        if (isGlobal && !confirm(`CONFIRMATION: Vous allez modifier l'économie de TOUS les joueurs (${action} ${amountVal}${mode === 'percent' ? '%' : '$'}). Continuer ?`)) return;
 
-        if (!bank) {
-            alert("Ce personnage n'a pas de compte bancaire actif.");
-            return;
+        // Determine multiplier or addition value
+        // Note: For percent, we read as integer percentage (e.g. 10 for 10%)
+        
+        let bankAccountsToUpdate = [];
+        
+        // Fetch accounts
+        if (isGlobal) {
+            const { data, error } = await state.supabase.from('bank_accounts').select('*');
+            if (error) return alert("Erreur fetch global: " + error.message);
+            bankAccountsToUpdate = data;
+        } else {
+             const { data, error } = await state.supabase.from('bank_accounts').select('*').eq('character_id', targetId).maybeSingle();
+             if (data) bankAccountsToUpdate = [data];
+             else return alert("Compte introuvable pour ce personnage.");
         }
 
-        // 2. Update balance
-        const newBalance = bank.bank_balance + amount;
-        const { error: updateError } = await state.supabase
-            .from('bank_accounts')
-            .update({ bank_balance: newBalance })
-            .eq('id', bank.id);
+        let updatedCount = 0;
 
-        if (updateError) {
-            alert("Erreur update: " + updateError.message);
-            return;
+        // Process Update (Loop is safest without SQL triggers for complex percent logic)
+        for (const account of bankAccountsToUpdate) {
+            let newBalance = Number(account.bank_balance);
+            
+            if (mode === 'fixed') {
+                if (action === 'add') newBalance += amountVal;
+                else newBalance -= amountVal;
+            } else {
+                // Percentage
+                const delta = newBalance * (amountVal / 100);
+                if (action === 'add') newBalance += delta;
+                else newBalance -= delta;
+            }
+            
+            newBalance = Math.round(newBalance); // Keep integers
+
+            // Log Transaction
+            await state.supabase.from('transactions').insert({
+                sender_id: null,
+                receiver_id: account.character_id,
+                amount: (action === 'remove' ? -1 : 1) * (mode === 'fixed' ? amountVal : 0), // If percent, log 0 or generic, hard to track exact amount in generic log without more logic
+                type: 'admin_adjustment',
+                description: `Staff Global: ${action} ${amountVal} ${mode}`
+            });
+            
+            const { error } = await state.supabase.from('bank_accounts').update({ bank_balance: newBalance }).eq('id', account.id);
+            if (!error) updatedCount++;
         }
 
-        // 3. Log transaction
-        await state.supabase.from('transactions').insert({
-            sender_id: null,
-            receiver_id: charId,
-            amount: amount,
-            type: 'admin_adjustment',
-            description: 'Staff Intervention'
-        });
-
-        alert(`Solde mis à jour. Nouveau solde: $${newBalance}`);
-        // Refresh view if needed
-        if (state.activeStaffTab === 'database') {
-             await fetchAllCharacters(); 
-             render();
-        }
+        alert(`Opération terminée. ${updatedCount} comptes mis à jour.`);
+        actions.closeEconomyModal();
+        await fetchAllCharacters(); // Refresh list to update any visible stats if added later
+        render();
     }
 };
 
