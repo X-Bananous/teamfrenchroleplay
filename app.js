@@ -329,11 +329,42 @@ const Views = {
         
         const historyHtml = state.transactions.length > 0 
             ? state.transactions.map(t => {
-                const isPositive = t.type === 'deposit' || (t.type === 'transfer' && t.receiver_id === state.activeCharacter.id) || (t.type === 'admin_adjustment' && t.amount > 0);
-                const color = isPositive ? 'text-emerald-400' : 'text-white';
-                const sign = isPositive ? '+' : '-';
-                const icon = t.type === 'transfer' ? 'arrow-right-left' : t.type === 'withdraw' ? 'banknote' : 'wallet';
-                
+                let icon, color, label, sign;
+
+                if (t.type === 'deposit') {
+                    icon = 'arrow-down-left';
+                    color = 'text-emerald-400';
+                    label = 'Dépôt d\'espèces';
+                    sign = '+';
+                } else if (t.type === 'withdraw') {
+                    icon = 'arrow-up-right';
+                    color = 'text-white';
+                    label = 'Retrait d\'espèces';
+                    sign = '-';
+                } else if (t.type === 'transfer') {
+                    if (t.receiver_id === state.activeCharacter.id) {
+                        icon = 'arrow-down-left';
+                        color = 'text-emerald-400';
+                        label = 'Virement Reçu';
+                        sign = '+';
+                    } else {
+                        icon = 'send';
+                        color = 'text-red-400';
+                        label = 'Virement Envoyé';
+                        sign = '-';
+                    }
+                } else if (t.type === 'admin_adjustment') {
+                    icon = 'shield-alert';
+                    label = 'Ajustement Admin';
+                    if (t.amount >= 0) {
+                        color = 'text-emerald-400';
+                        sign = '+';
+                    } else {
+                        color = 'text-red-400';
+                        sign = '-';
+                    }
+                }
+
                 return `
                     <div class="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
                         <div class="flex items-center gap-4">
@@ -341,7 +372,7 @@ const Views = {
                                 <i data-lucide="${icon}" class="w-4 h-4"></i>
                             </div>
                             <div>
-                                <div class="font-medium text-white capitalize">${t.type.replace('_', ' ')}</div>
+                                <div class="font-medium text-white">${label}</div>
                                 <div class="text-xs text-gray-500">${new Date(t.created_at).toLocaleString()}</div>
                             </div>
                         </div>
@@ -353,7 +384,7 @@ const Views = {
             }).join('') 
             : '<div class="text-center text-gray-500 py-8 italic">Aucune transaction récente.</div>';
 
-        // Recipient options for transfer
+        // Filter current character out of recipient list
         const recipientOptions = state.recipientList
             .filter(r => r.id !== state.activeCharacter.id)
             .map(r => `<option value="${r.id}">${r.first_name} ${r.last_name}</option>`)
@@ -379,7 +410,7 @@ const Views = {
                             <span class="text-sm font-bold text-gray-400 uppercase tracking-wider">Espèces (Poches)</span>
                         </div>
                         <div class="text-4xl font-bold text-white tracking-tight">$ ${state.bankAccount.cash_balance.toLocaleString()}</div>
-                        <p class="text-gray-600 text-xs mt-2">Disponible immédiatement</p>
+                        <p class="text-gray-600 text-xs mt-2">Disponible pour dépôt</p>
                     </div>
                 </div>
 
@@ -388,19 +419,21 @@ const Views = {
                     <!-- Deposit -->
                     <form onsubmit="actions.bankDeposit(event)" class="glass-panel p-6 rounded-2xl flex flex-col gap-4">
                         <div class="flex items-center gap-2 text-white font-bold">
-                            <i data-lucide="arrow-down-to-line" class="w-5 h-5 text-emerald-400"></i> Dépôt
+                            <i data-lucide="arrow-down-left" class="w-5 h-5 text-emerald-400"></i> Dépôt
                         </div>
+                        <p class="text-xs text-gray-400">Espèces -> Banque</p>
                         <input type="number" name="amount" placeholder="Montant" min="1" max="${state.bankAccount.cash_balance}" class="glass-input p-3 rounded-lg w-full" required>
-                        <button type="submit" class="glass-btn-secondary bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20 py-2 rounded-lg font-semibold text-sm">Déposer</button>
+                        <button type="submit" class="glass-btn-secondary bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20 py-2 rounded-lg font-semibold text-sm cursor-pointer transition-colors">Déposer</button>
                     </form>
 
                     <!-- Withdraw -->
                     <form onsubmit="actions.bankWithdraw(event)" class="glass-panel p-6 rounded-2xl flex flex-col gap-4">
                         <div class="flex items-center gap-2 text-white font-bold">
-                            <i data-lucide="arrow-up-from-line" class="w-5 h-5 text-red-400"></i> Retrait
+                            <i data-lucide="arrow-up-right" class="w-5 h-5 text-white"></i> Retrait
                         </div>
+                        <p class="text-xs text-gray-400">Banque -> Espèces</p>
                         <input type="number" name="amount" placeholder="Montant" min="1" max="${state.bankAccount.bank_balance}" class="glass-input p-3 rounded-lg w-full" required>
-                        <button type="submit" class="glass-btn-secondary bg-white/5 hover:bg-white/10 py-2 rounded-lg font-semibold text-sm">Retirer</button>
+                        <button type="submit" class="glass-btn-secondary bg-white/5 hover:bg-white/10 py-2 rounded-lg font-semibold text-sm cursor-pointer transition-colors">Retirer</button>
                     </form>
 
                     <!-- Transfer -->
@@ -408,19 +441,20 @@ const Views = {
                         <div class="flex items-center gap-2 text-white font-bold">
                             <i data-lucide="send" class="w-5 h-5 text-blue-400"></i> Virement
                         </div>
+                        <p class="text-xs text-gray-400">Banque -> Autre Joueur</p>
                         <select name="target_id" class="glass-input p-3 rounded-lg w-full bg-black/50 appearance-none" required>
                             <option value="">Sélectionner un bénéficiaire</option>
                             ${recipientOptions}
                         </select>
                         <input type="number" name="amount" placeholder="Montant" min="1" max="${state.bankAccount.bank_balance}" class="glass-input p-3 rounded-lg w-full" required>
-                        <button type="submit" class="glass-btn bg-blue-600 hover:bg-blue-500 py-2 rounded-lg font-semibold text-sm shadow-lg shadow-blue-500/20">Envoyer</button>
+                        <button type="submit" class="glass-btn bg-blue-600 hover:bg-blue-500 py-2 rounded-lg font-semibold text-sm shadow-lg shadow-blue-500/20 cursor-pointer transition-colors">Envoyer</button>
                     </form>
                 </div>
 
                 <!-- History -->
                 <div class="glass-panel rounded-2xl p-6">
                     <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <i data-lucide="history" class="w-5 h-5 text-gray-400"></i> Historique
+                        <i data-lucide="history" class="w-5 h-5 text-gray-400"></i> Historique des Transactions
                     </h3>
                     <div class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-2">
                         ${historyHtml}
@@ -908,11 +942,12 @@ const fetchBankData = async (charId) => {
     
     state.transactions = txs || [];
 
-    // 3. Get Potential Recipients (All accepted characters)
+    // 3. Get Potential Recipients (All accepted characters, except myself)
     const { data: recipients } = await state.supabase
         .from('characters')
         .select('id, first_name, last_name')
-        .eq('status', 'accepted');
+        .eq('status', 'accepted')
+        .neq('id', charId);
         
     state.recipientList = recipients || [];
 };
@@ -1060,21 +1095,28 @@ window.actions = {
         const amount = parseInt(new FormData(e.target).get('amount'));
         if (amount <= 0 || amount > state.bankAccount.cash_balance) return;
 
-        // DB Update
-        const updates = {
-            bank_balance: state.bankAccount.bank_balance + amount,
-            cash_balance: state.bankAccount.cash_balance - amount
-        };
-        await state.supabase.from('bank_accounts').update(updates).eq('character_id', state.activeCharacter.id);
+        const charId = state.activeCharacter.id;
+
+        // DB Updates (Not transactional but sequential - okay for prototype)
+        // 1. Update Account
+        const { error } = await state.supabase
+            .from('bank_accounts')
+            .update({
+                bank_balance: state.bankAccount.bank_balance + amount,
+                cash_balance: state.bankAccount.cash_balance - amount
+            })
+            .eq('character_id', charId);
         
-        // Log Transaction
+        if (error) { alert("Erreur dépôt"); return; }
+
+        // 2. Log Transaction
         await state.supabase.from('transactions').insert({
-            sender_id: state.activeCharacter.id,
+            sender_id: charId,
             amount: amount,
             type: 'deposit'
         });
 
-        await fetchBankData(state.activeCharacter.id);
+        await fetchBankData(charId);
         render();
     },
 
@@ -1083,19 +1125,26 @@ window.actions = {
         const amount = parseInt(new FormData(e.target).get('amount'));
         if (amount <= 0 || amount > state.bankAccount.bank_balance) return;
 
-        const updates = {
-            bank_balance: state.bankAccount.bank_balance - amount,
-            cash_balance: state.bankAccount.cash_balance + amount
-        };
-        await state.supabase.from('bank_accounts').update(updates).eq('character_id', state.activeCharacter.id);
+        const charId = state.activeCharacter.id;
+
+        // DB Updates
+        const { error } = await state.supabase
+            .from('bank_accounts')
+            .update({
+                bank_balance: state.bankAccount.bank_balance - amount,
+                cash_balance: state.bankAccount.cash_balance + amount
+            })
+            .eq('character_id', charId);
+
+        if (error) { alert("Erreur retrait"); return; }
         
         await state.supabase.from('transactions').insert({
-            sender_id: state.activeCharacter.id,
+            sender_id: charId,
             amount: amount,
             type: 'withdraw'
         });
 
-        await fetchBankData(state.activeCharacter.id);
+        await fetchBankData(charId);
         render();
     },
 
@@ -1105,47 +1154,27 @@ window.actions = {
         const amount = parseInt(data.get('amount'));
         const targetId = data.get('target_id');
         
-        if (amount <= 0 || amount > state.bankAccount.bank_balance || !targetId) return;
+        if (amount <= 0 || amount > state.bankAccount.bank_balance || !targetId) {
+            alert("Montant invalide ou bénéficiaire manquant.");
+            return;
+        }
 
-        // 1. Deduct from Sender
-        await state.supabase.rpc('transfer_money', { 
+        // Use the Secure RPC (PL/pgSQL function) for atomic transfer
+        const { error } = await state.supabase.rpc('transfer_money', { 
             sender: state.activeCharacter.id, 
             receiver: targetId, 
             amt: amount 
         });
 
-        // NOTE: In a real app we'd use an SQL function (RPC) for atomicity. 
-        // Here we simulate updating local state + transaction log.
-        // Assuming the RPC might not exist in this demo env, we try direct update logic for demo:
-        
-        /* 
-        const { data: targetAccount } = await state.supabase.from('bank_accounts').select('bank_balance').eq('character_id', targetId).single();
-        if(targetAccount) {
-             await state.supabase.from('bank_accounts').update({ bank_balance: state.bankAccount.bank_balance - amount }).eq('character_id', state.activeCharacter.id);
-             await state.supabase.from('bank_accounts').update({ bank_balance: targetAccount.bank_balance + amount }).eq('character_id', targetId);
-             
-             await state.supabase.from('transactions').insert({
-                sender_id: state.activeCharacter.id,
-                receiver_id: targetId,
-                amount: amount,
-                type: 'transfer'
-            });
+        if (error) {
+            console.error("Transfer Error", error);
+            alert("Erreur virement: " + error.message);
+            return;
         }
-        */
-       
-       // Fallback simulation for UI if RPC missing
-       await state.supabase.from('transactions').insert({
-            sender_id: state.activeCharacter.id,
-            receiver_id: targetId,
-            amount: amount,
-            type: 'transfer'
-        });
         
-        // Just update local balance for visual feedback in this demo context
-        state.bankAccount.bank_balance -= amount;
+        alert("Virement effectué avec succès.");
         await fetchBankData(state.activeCharacter.id);
         render();
-        alert("Virement effectué.");
     },
 
     // --- Staff Permission Logic ---
