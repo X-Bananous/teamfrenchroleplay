@@ -6,12 +6,48 @@ import { StaffView } from './staff.js';
 import { AssetsView } from './assets.js';
 import { IllicitView } from './illicit.js';
 import { hasPermission } from '../utils.js';
+import { ui } from '../ui.js';
 
 export const HubView = () => {
+    // --- CHECK ALIGNMENT ---
+    // Si le personnage n'a pas d'alignement (anciens persos), on force le choix
+    if (state.activeCharacter && !state.activeCharacter.alignment && !state.alignmentModalShown) {
+        state.alignmentModalShown = true;
+        setTimeout(() => {
+            ui.showModal({
+                title: "Mise à jour Dossier",
+                content: `
+                    <div class="text-center">
+                        <p class="mb-4">Votre dossier citoyen nécessite une mise à jour administrative.</p>
+                        <p class="font-bold text-white mb-2">Quelle est votre orientation actuelle ?</p>
+                        <div class="grid grid-cols-2 gap-4 mt-4">
+                            <button onclick="actions.setAlignment('legal')" class="p-4 rounded-xl bg-blue-500/20 border border-blue-500 hover:bg-blue-500/30 transition-colors">
+                                <i data-lucide="briefcase" class="w-8 h-8 text-blue-400 mx-auto mb-2"></i>
+                                <div class="text-sm font-bold text-white">Légal / Civil</div>
+                            </button>
+                            <button onclick="actions.setAlignment('illegal')" class="p-4 rounded-xl bg-red-500/20 border border-red-500 hover:bg-red-500/30 transition-colors">
+                                <i data-lucide="skull" class="w-8 h-8 text-red-400 mx-auto mb-2"></i>
+                                <div class="text-sm font-bold text-white">Illégal</div>
+                            </button>
+                        </div>
+                    </div>
+                `,
+                confirmText: null, // Pas de bouton par défaut, les boutons custom gèrent l'action
+                type: 'default'
+            });
+            // Hack pour cacher le bouton OK par défaut qui fermerait sans choix
+            setTimeout(() => {
+                const confirmBtn = document.getElementById('modal-confirm');
+                if(confirmBtn) confirmBtn.style.display = 'none';
+            }, 50);
+        }, 500);
+    }
+
     let content = '';
     
     if (state.activeHubPanel === 'main') {
         const showStaffCard = Object.keys(state.user.permissions || {}).length > 0 || state.user.isFounder;
+        const isIllegal = state.activeCharacter?.alignment === 'illegal';
 
         content = `
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
@@ -39,29 +75,30 @@ export const HubView = () => {
                     </div>
                 </button>
 
-                <!-- Services -->
-                <button onclick="actions.setHubPanel('services')" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden cursor-pointer">
-                    <div class="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400 mb-4 group-hover:bg-blue-500 group-hover:text-white transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)]">
-                        <i data-lucide="siren" class="w-6 h-6"></i>
-                    </div>
-                    <div class="relative z-10">
-                        <h3 class="text-xl font-bold text-white">Urgence & Services</h3>
-                        <p class="text-sm text-gray-400 mt-1">Police, Sheriff, Fire & DOT</p>
-                    </div>
-                </button>
-
-                <!-- Illicit -->
-                <button onclick="actions.setHubPanel('illicit')" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden cursor-pointer">
-                    <div class="absolute inset-0 bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    <div class="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center text-red-400 mb-4 group-hover:bg-red-500 group-hover:text-white transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)]">
-                        <i data-lucide="skull" class="w-6 h-6"></i>
-                    </div>
-                    <div class="relative z-10">
-                        <h3 class="text-xl font-bold text-white">Monde Criminel</h3>
-                        <p class="text-sm text-gray-400 mt-1">Mafias, Gangs & Marché Noir</p>
-                    </div>
-                </button>
+                <!-- CONDITIONAL: Services OR Illicit -->
+                ${!isIllegal ? `
+                    <button onclick="actions.setHubPanel('services')" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden cursor-pointer">
+                        <div class="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400 mb-4 group-hover:bg-blue-500 group-hover:text-white transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)]">
+                            <i data-lucide="siren" class="w-6 h-6"></i>
+                        </div>
+                        <div class="relative z-10">
+                            <h3 class="text-xl font-bold text-white">Services Publics</h3>
+                            <p class="text-sm text-gray-400 mt-1">Police, Sheriff, Fire & DOT</p>
+                        </div>
+                    </button>
+                ` : `
+                    <button onclick="actions.setHubPanel('illicit')" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden cursor-pointer border-red-500/20">
+                        <div class="absolute inset-0 bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div class="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center text-red-400 mb-4 group-hover:bg-red-500 group-hover:text-white transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)]">
+                            <i data-lucide="skull" class="w-6 h-6"></i>
+                        </div>
+                        <div class="relative z-10">
+                            <h3 class="text-xl font-bold text-white">Monde Criminel</h3>
+                            <p class="text-sm text-gray-400 mt-1">Mafias, Gangs & Marché Noir</p>
+                        </div>
+                    </button>
+                `}
 
                 <!-- Staff Card (Conditional) -->
                 ${showStaffCard ? `
@@ -113,6 +150,7 @@ export const HubView = () => {
     };
 
     const hasStaffAccess = Object.keys(state.user.permissions || {}).length > 0 || state.user.isFounder;
+    const isIllegal = state.activeCharacter?.alignment === 'illegal';
 
     return `
         <div class="flex h-full w-full bg-[#050505]">
@@ -133,8 +171,9 @@ export const HubView = () => {
                     ${navItem('main', 'layout-grid', 'Tableau de bord', 'text-blue-400')}
                     ${navItem('bank', 'landmark', 'Ma Banque', 'text-emerald-400')}
                     ${navItem('assets', 'gem', 'Patrimoine', 'text-indigo-400')}
-                    ${navItem('services', 'siren', 'Services Publics', 'text-blue-400')}
-                    ${navItem('illicit', 'skull', 'Illégal', 'text-red-400')}
+                    
+                    ${!isIllegal ? navItem('services', 'siren', 'Services Publics', 'text-blue-400') : ''}
+                    ${isIllegal ? navItem('illicit', 'skull', 'Illégal', 'text-red-400') : ''}
                     
                     ${hasStaffAccess ? `
                         <div class="my-4 border-t border-white/5"></div>

@@ -1,8 +1,9 @@
+
 import { CONFIG } from '../config.js';
 
 export const CharacterCreateView = () => `
-    <div class="flex-1 flex items-center justify-center p-6 animate-fade-in h-full">
-        <div class="glass-panel w-full max-w-2xl p-8 rounded-[40px] relative">
+    <div class="flex-1 flex items-center justify-center p-6 animate-fade-in h-full overflow-y-auto custom-scrollbar">
+        <div class="glass-panel w-full max-w-2xl p-8 rounded-[40px] relative my-auto">
             <div class="flex justify-between items-center mb-8 border-b border-white/10 pb-6">
                 <div>
                     <h2 class="text-2xl font-bold text-white">Nouveau Citoyen</h2>
@@ -36,11 +37,38 @@ export const CharacterCreateView = () => `
                     </div>
                 </div>
 
+                <!-- ALIGNMENT SELECTION -->
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-gray-500 uppercase ml-1">Orientation Initiale</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="alignment" value="legal" class="peer sr-only" required>
+                            <div class="p-4 rounded-xl bg-white/5 border border-white/5 peer-checked:bg-blue-600/20 peer-checked:border-blue-500 hover:bg-white/10 transition-all text-center h-full">
+                                <div class="w-10 h-10 mx-auto bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400 mb-2">
+                                    <i data-lucide="briefcase" class="w-5 h-5"></i>
+                                </div>
+                                <div class="font-bold text-white text-sm">Légal / Civil</div>
+                                <div class="text-[10px] text-gray-400 mt-1">Services publics, entreprises, vie rangée.</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="alignment" value="illegal" class="peer sr-only">
+                            <div class="p-4 rounded-xl bg-white/5 border border-white/5 peer-checked:bg-red-600/20 peer-checked:border-red-500 hover:bg-white/10 transition-all text-center h-full">
+                                <div class="w-10 h-10 mx-auto bg-red-500/20 rounded-full flex items-center justify-center text-red-400 mb-2">
+                                    <i data-lucide="skull" class="w-5 h-5"></i>
+                                </div>
+                                <div class="font-bold text-white text-sm">Illégal / Criminel</div>
+                                <div class="text-[10px] text-gray-400 mt-1">Gangs, mafias, marché noir.</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl flex gap-3 items-start">
                     <i data-lucide="info" class="w-5 h-5 text-blue-400 shrink-0 mt-0.5"></i>
                     <p class="text-xs text-blue-100/80 leading-relaxed">
-                        Respectez le Lore Realistic RP d'ERLC. Pas de noms troll ou célébrités.
-                        Limite de ${CONFIG.MAX_CHARS} personnages.
+                        Le choix d'orientation détermine l'accès aux services (Public vs Marché Noir). 
+                        Vous pourrez changer via RP plus tard.
                     </p>
                 </div>
 

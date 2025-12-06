@@ -1,4 +1,5 @@
 
+
 /**
  * TFRP Core Logic
  * Modularized Structure
@@ -18,8 +19,11 @@ import {
     searchProfiles,
     fetchInventory,
     fetchActiveHeistLobby,
+    fetchAvailableLobbies,
     createHeistLobby,
     inviteToLobby,
+    joinLobbyRequest,
+    acceptLobbyMember,
     startHeistSync
 } from './modules/services.js';
 import { HEIST_DATA } from './modules/views/illicit.js';
@@ -39,6 +43,23 @@ window.actions = {
         const scope = encodeURIComponent('identify guilds');
         const url = `https://discord.com/api/oauth2/authorize?client_id=${CONFIG.DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(CONFIG.REDIRECT_URI)}&response_type=token&scope=${scope}`;
         window.open(url, 'DiscordAuth', 'width=500,height=800,left=200,top=200');
+    },
+    
+    // FOUNDATION BYPASS (Added back per request)
+    bypassLogin: async () => {
+        if (!state.user || !CONFIG.ADMIN_IDS.includes(state.user.id)) return;
+        
+        // Simuler un personnage "Staff"
+        state.activeCharacter = {
+            id: 'STAFF_BYPASS',
+            user_id: state.user.id,
+            first_name: 'Administrateur',
+            last_name: 'Fondation',
+            status: 'accepted',
+            alignment: 'legal'
+        };
+        state.activeHubPanel = 'staff';
+        router('hub');
     },
     
     confirmLogout: () => {
@@ -77,6 +98,7 @@ window.actions = {
         if (char && char.status === 'accepted') {
             state.activeCharacter = char;
             state.activeHubPanel = 'main';
+            state.alignmentModalShown = false; // Reset for missing alignment check
             router('hub');
         }
     },
@@ -107,7 +129,8 @@ window.actions = {
             birth_place: data.birth_place,
             age: age,
             status: 'pending',
-            user_id: state.user.id
+            user_id: state.user.id,
+            alignment: data.alignment // New field
         };
 
         const { error } = await state.supabase.from('characters').insert([newChar]);
@@ -118,6 +141,15 @@ window.actions = {
         } else {
             ui.showToast("Erreur lors de la création.", 'error');
         }
+    },
+
+    // Post-creation Alignment Set (for legacy characters)
+    setAlignment: async (alignment) => {
+        const charId = state.activeCharacter.id;
+        await state.supabase.from('characters').update({ alignment: alignment }).eq('id', charId);
+        state.activeCharacter.alignment = alignment;
+        ui.closeModal();
+        render(); // Re-render Hub to show correct cards
     },
 
     deleteCharacter: async (charId) => {
@@ -156,8 +188,8 @@ window.actions = {
             await fetchInventory(state.activeCharacter.id);
         } else if (panel === 'illicit' && state.activeCharacter) {
             ui.showToast('Connexion réseau crypté...', 'warning');
+            state.activeIllicitTab = 'menu'; // Reset to menu
             await fetchBankData(state.activeCharacter.id);
-            await fetchActiveHeistLobby(state.activeCharacter.id); // Fetch Lobbies
         } else if (panel === 'staff') {
             state.staffSearchQuery = ''; 
             
@@ -218,8 +250,11 @@ window.actions = {
     },
 
     // Illicit / Black Market Actions
-    setIllicitTab: (tab) => {
+    setIllicitTab: async (tab) => {
         state.activeIllicitTab = tab;
+        if (tab === 'heists') {
+             await fetchActiveHeistLobby(state.activeCharacter.id);
+        }
         render();
     },
 
@@ -265,8 +300,25 @@ window.actions = {
     },
     inviteToLobby: async (targetId) => {
         if(!targetId) return;
-        await inviteToLobby(targetId);
-        // Render handled in inviteToLobby simulation
+        await inviteToLobby(targetId); // Legacy logic, but functional
+        render();
+    },
+    requestJoinLobby: async (lobbyId) => {
+        await joinLobbyRequest(lobbyId);
+        ui.showToast('Demande envoyée au chef.', 'success');
+        // Refresh to show pending state if possible, or wait for host
+    },
+    acceptHeistApplicant: async (targetCharId) => {
+        await acceptLobbyMember(targetCharId);
+        ui.showToast('Membre accepté !', 'success');
+        render();
+    },
+    rejectHeistApplicant: async (targetCharId) => {
+        if(!state.activeHeistLobby) return;
+        await state.supabase.from('heist_members').delete().eq('lobby_id', state.activeHeistLobby.id).eq('character_id', targetCharId);
+        ui.showToast('Candidature rejetée.', 'info');
+        await fetchActiveHeistLobby(state.activeCharacter.id);
+        render();
     },
     startHeistLobby: async (timeSeconds) => {
         await startHeistSync(timeSeconds);
@@ -318,6 +370,7 @@ window.actions = {
         // Delete membership
         await state.supabase.from('heist_members').delete().eq('lobby_id', state.activeHeistLobby.id).eq('character_id', state.activeCharacter.id);
         await fetchActiveHeistLobby(state.activeCharacter.id);
+        state.activeIllicitTab = 'heists';
         render();
     },
 
@@ -369,6 +422,15 @@ window.actions = {
                 }
             }
         });
+    },
+
+    adminSwitchTeam: async (id, currentAlignment) => {
+        if (!hasPermission('can_change_team')) return;
+        const newAlign = currentAlignment === 'legal' ? 'illegal' : 'legal';
+        await state.supabase.from('characters').update({ alignment: newAlign }).eq('id', id);
+        ui.showToast(`Équipe changée en ${newAlign}`, 'success');
+        await fetchAllCharacters();
+        render();
     },
 
     // INVENTORY MANAGEMENT ADMIN
@@ -483,7 +545,8 @@ window.actions = {
             { k: 'can_manage_characters', l: 'Gérer Personnages (Suppr.)' },
             { k: 'can_manage_economy', l: 'Gérer Économie' },
             { k: 'can_manage_staff', l: 'Gérer Staff' },
-            { k: 'can_manage_inventory', l: 'Gérer Inventaires' }
+            { k: 'can_manage_inventory', l: 'Gérer Inventaires' },
+            { k: 'can_change_team', l: 'Changer Équipe (Legal/Illegal)' }
         ].map(p => `
             <label class="flex items-center gap-3 p-3 bg-white/5 rounded-lg ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/10'} transition-colors">
                 <input type="checkbox" onchange="actions.updatePermission('${profile.id}', '${p.k}', this.checked)" 
@@ -712,6 +775,19 @@ const appRenderer = () => {
     }
 
     app.innerHTML = htmlContent;
+    
+    // Inject Bypass Button manually if in select view and founder
+    if (state.currentView === 'select' && state.user && CONFIG.ADMIN_IDS.includes(state.user.id)) {
+        const header = app.querySelector('.flex.items-center.gap-4');
+        if (header) {
+             const btn = document.createElement('button');
+             btn.onclick = actions.bypassLogin;
+             btn.className = 'bg-purple-500/20 text-purple-300 px-3 py-1 rounded text-xs hover:bg-purple-500/40 font-bold border border-purple-500/20';
+             btn.innerHTML = '<i data-lucide="key" class="w-3 h-3 inline mr-1"></i> Fondation';
+             header.prepend(btn);
+        }
+    }
+
     if (window.lucide) setTimeout(() => lucide.createIcons(), 50);
 };
 
@@ -723,9 +799,10 @@ const startPolling = () => {
         if (!state.user || !state.activeCharacter) return;
         
         // Update Heist Status
-        if (state.activeHubPanel === 'illicit') {
+        if (state.activeHubPanel === 'illicit' && state.activeIllicitTab === 'heists') {
              await fetchActiveHeistLobby(state.activeCharacter.id);
-             // Trigger render if active to update timer
+             // Trigger render if active to update timer or if status changed
+             // Optimization: checking specific conditions to avoid flicker would be better, but generic render is safer for prototype
              if(state.activeHeistLobby && state.activeHeistLobby.status === 'active') render(); 
         }
     }, 1000); 

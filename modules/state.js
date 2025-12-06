@@ -50,10 +50,10 @@ export const state = {
     idCardModalOpen: false, // For viewing ID
     
     // Illicit Data
-    activeIllicitTab: 'light', // light, medium, heavy, sniper, heists
+    activeIllicitTab: 'menu', // menu, market, heists, drugs
     activeHeistLobby: null, // SYNC: Data from 'heist_lobbies' table
     heistMembers: [], // SYNC: Data from 'heist_members'
-    availableHeistPartners: [], // For inviting
+    availableHeistLobbies: [], // For joining
     
     // UI State
     currentView: 'login', // login, select, create, hub, access_denied
