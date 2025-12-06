@@ -13,6 +13,17 @@ export const state = {
     allCharactersAdmin: [],
     staffMembers: [], // List of current staff
     
+    // Stats & Monitoring
+    serverStats: {
+        totalMoney: 0,
+        totalCash: 0,
+        totalBank: 0,
+        totalCoke: 0,
+        totalWeed: 0,
+        heistWinRate: 100
+    },
+    pendingHeistReviews: [], // Braquages en attente de validation staff
+    
     // Search States for Staff Panel
     staffSearchQuery: '', 
     staffPermissionSearchResults: [], // Dropdown results for permission tab
@@ -60,7 +71,7 @@ export const state = {
     // UI State
     currentView: 'login', // login, select, create, hub, access_denied
     activeHubPanel: 'main', // main, bank, services, illicit, staff, assets
-    activeStaffTab: 'applications', // applications, database, permissions, economy
+    activeStaffTab: 'applications', // applications, database, permissions, economy, illegal
     isLoggingIn: false, // UI state for popup login
     
     supabase: null,

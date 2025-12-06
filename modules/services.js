@@ -1,7 +1,9 @@
 
 
+
 import { state } from './state.js';
 import { showToast } from './ui.js';
+import { HEIST_DATA } from './views/illicit.js';
 
 export const loadCharacters = async () => {
     if (!state.user || !state.supabase) return;
@@ -63,6 +65,71 @@ export const searchProfiles = async (query) => {
     }
     const { data } = await dbQuery.limit(10);
     return data || [];
+};
+
+// --- STAFF STATS & ILLEGAL MANAGEMENT ---
+export const fetchServerStats = async () => {
+    // Money Stats
+    const { data: accounts } = await state.supabase.from('bank_accounts').select('bank_balance, cash_balance');
+    let tBank = 0, tCash = 0;
+    if (accounts) {
+        accounts.forEach(a => { tBank += (a.bank_balance || 0); tCash += (a.cash_balance || 0); });
+    }
+    state.serverStats.totalBank = tBank;
+    state.serverStats.totalCash = tCash;
+    state.serverStats.totalMoney = tBank + tCash;
+
+    // Drug Stats
+    const { data: labs } = await state.supabase.from('drug_labs').select('stock_coke_raw, stock_coke_pure, stock_weed_raw, stock_weed_pure');
+    let tCoke = 0, tWeed = 0;
+    if (labs) {
+        labs.forEach(l => {
+            tCoke += (l.stock_coke_raw || 0) + (l.stock_coke_pure || 0);
+            tWeed += (l.stock_weed_raw || 0) + (l.stock_weed_pure || 0);
+        });
+    }
+    state.serverStats.totalCoke = tCoke;
+    state.serverStats.totalWeed = tWeed;
+};
+
+export const fetchPendingHeistReviews = async () => {
+    // Fetch lobbies waiting for staff validation (pending_review)
+    const { data: lobbies } = await state.supabase
+        .from('heist_lobbies')
+        .select('*, characters(first_name, last_name)')
+        .eq('status', 'pending_review');
+    
+    state.pendingHeistReviews = lobbies || [];
+};
+
+export const adminResolveHeist = async (lobbyId, success) => {
+    const { data: lobby } = await state.supabase.from('heist_lobbies').select('*').eq('id', lobbyId).single();
+    if(!lobby) return;
+
+    if (!success) {
+        await state.supabase.from('heist_lobbies').update({ status: 'failed' }).eq('id', lobbyId);
+    } else {
+        const heist = HEIST_DATA.find(h => h.id === lobby.heist_type);
+        // Calculate loot for High Tier (Manual Validation)
+        // Usually higher reward for big risks
+        const rawLoot = Math.floor(Math.random() * (heist.max - heist.min + 1)) + heist.min;
+        
+        // Distribute to members
+        const { data: members } = await state.supabase.from('heist_members').select('character_id').eq('lobby_id', lobbyId).eq('status', 'accepted');
+        const share = Math.floor(rawLoot / members.length);
+
+        for (const m of members) {
+             const { data: bank } = await state.supabase.from('bank_accounts').select('cash_balance').eq('character_id', m.character_id).single();
+             if(bank) {
+                 await state.supabase.from('bank_accounts').update({ cash_balance: bank.cash_balance + share }).eq('character_id', m.character_id);
+                 await state.supabase.from('transactions').insert({ sender_id: m.character_id, amount: share, type: 'deposit', description: `Gain Braquage: ${heist.name}` });
+             }
+        }
+
+        await state.supabase.from('heist_lobbies').update({ status: 'finished' }).eq('id', lobbyId);
+    }
+    
+    await fetchPendingHeistReviews();
 };
 
 // Economy Services

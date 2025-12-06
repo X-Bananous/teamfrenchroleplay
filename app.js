@@ -1,5 +1,7 @@
 
 
+
+
 /**
  * TFRP Core Logic
  * Modularized Structure
@@ -25,7 +27,10 @@ import {
     acceptLobbyMember,
     startHeistSync,
     fetchDrugLab,
-    updateDrugLab
+    updateDrugLab,
+    fetchServerStats,
+    fetchPendingHeistReviews,
+    adminResolveHeist
 } from './modules/services.js';
 import { HEIST_DATA, DRUG_DATA } from './modules/views/illicit.js';
 import { generateInventoryRow } from './modules/views/assets.js';
@@ -198,14 +203,25 @@ window.actions = {
             
             if (hasPermission('can_approve_characters')) state.activeStaffTab = 'applications';
             else if (hasPermission('can_manage_economy')) state.activeStaffTab = 'economy';
+            else if (hasPermission('can_manage_illegal')) state.activeStaffTab = 'illegal';
             else if (hasPermission('can_manage_staff')) state.activeStaffTab = 'permissions';
             else state.activeStaffTab = 'database'; 
             
-            await Promise.all([
+            // Initial data fetch based on tab
+            const promises = [
                 fetchPendingApplications(), 
                 fetchAllCharacters(),
                 fetchStaffProfiles()
-            ]);
+            ];
+            
+            if(hasPermission('can_manage_economy') || hasPermission('can_manage_illegal')) {
+                promises.push(fetchServerStats());
+            }
+            if(hasPermission('can_manage_illegal')) {
+                promises.push(fetchPendingHeistReviews());
+            }
+            
+            await Promise.all(promises);
         }
         render();
     },
@@ -469,35 +485,45 @@ window.actions = {
         
         const lobby = state.activeHeistLobby;
         const heist = HEIST_DATA.find(h => h.id === lobby.heist_type);
-        const groupSize = state.heistMembers.length;
         
-        // RNG Logic
-        const roll = Math.random() * 100;
-        const success = roll <= heist.rate;
-        
-        let message = '';
-        if (success) {
-            const rawLoot = Math.floor(Math.random() * (heist.max - heist.min + 1)) + heist.min;
-            const myShare = Math.floor(rawLoot / groupSize);
-            
-            message = `Braquage RÉUSSI ! Butin total: $${rawLoot.toLocaleString()}. Votre part: $${myShare.toLocaleString()}.`;
-            
-            // Add Cash
-            const { data: bank } = await state.supabase.from('bank_accounts').select('cash_balance').eq('character_id', state.activeCharacter.id).single();
-            await state.supabase.from('bank_accounts').update({ cash_balance: bank.cash_balance + myShare }).eq('character_id', state.activeCharacter.id);
-             await state.supabase.from('transactions').insert({ sender_id: state.activeCharacter.id, amount: myShare, type: 'deposit', description: `Gain Braquage: ${heist.name}` });
-        } else {
-            message = "ÉCHEC ! La police est intervenue. Vous avez dû fuir les mains vides.";
+        // CHECK IF NEEDS MANUAL VALIDATION
+        if (heist.requiresValidation) {
+            await state.supabase.from('heist_lobbies').update({ status: 'pending_review' }).eq('id', lobby.id);
+            ui.showModal({
+                title: "Validation Requise",
+                content: "Braquage terminé. En attente de validation administrative (Staff) pour confirmer la réussite RP et distribuer les gains.",
+                confirmText: "Fermer",
+                type: "default",
+                onConfirm: async () => {
+                    await fetchActiveHeistLobby(state.activeCharacter.id);
+                    render();
+                }
+            });
+            return;
         }
 
-        // Close Lobby in DB (Only Host should, but for safety in this demo)
-        await state.supabase.from('heist_lobbies').update({ status: success ? 'finished' : 'failed' }).eq('id', lobby.id);
+        // AUTO SUCCESS (100% Rate for low tier)
+        const success = true; // "on ne doit pas pouvoir ne pas reussir"
+        const groupSize = state.heistMembers.length;
+        
+        const rawLoot = Math.floor(Math.random() * (heist.max - heist.min + 1)) + heist.min;
+        const myShare = Math.floor(rawLoot / groupSize);
+        
+        const message = `Braquage RÉUSSI ! Butin total: $${rawLoot.toLocaleString()}. Votre part: $${myShare.toLocaleString()}.`;
+        
+        // Add Cash
+        const { data: bank } = await state.supabase.from('bank_accounts').select('cash_balance').eq('character_id', state.activeCharacter.id).single();
+        await state.supabase.from('bank_accounts').update({ cash_balance: bank.cash_balance + myShare }).eq('character_id', state.activeCharacter.id);
+            await state.supabase.from('transactions').insert({ sender_id: state.activeCharacter.id, amount: myShare, type: 'deposit', description: `Gain Braquage: ${heist.name}` });
+
+        // Close Lobby in DB
+        await state.supabase.from('heist_lobbies').update({ status: 'finished' }).eq('id', lobby.id);
         
         ui.showModal({
-            title: success ? "Mission Accomplie" : "Mission Échouée",
+            title: "Mission Accomplie",
             content: message,
             confirmText: "Fermer",
-            type: success ? 'default' : 'danger',
+            type: 'default',
             onConfirm: async () => {
                 await fetchActiveHeistLobby(state.activeCharacter.id);
                 render();
@@ -530,9 +556,18 @@ window.actions = {
     },
 
     // Staff Actions
-    setStaffTab: (tab) => {
+    setStaffTab: async (tab) => {
         state.activeStaffTab = tab;
         state.staffSearchQuery = ''; 
+        
+        // Refresh Stats if needed
+        if (tab === 'economy' || tab === 'illegal') {
+             await fetchServerStats();
+        }
+        if (tab === 'illegal') {
+            await fetchPendingHeistReviews();
+        }
+
         render();
     },
     
@@ -585,6 +620,13 @@ window.actions = {
         await state.supabase.from('characters').update({ alignment: newAlign }).eq('id', id);
         ui.showToast(`Équipe changée en ${newAlign}`, 'success');
         await fetchAllCharacters();
+        render();
+    },
+    
+    validateHeist: async (lobbyId, success) => {
+        if (!hasPermission('can_manage_illegal')) return;
+        await adminResolveHeist(lobbyId, success);
+        ui.showToast(success ? "Braquage validé (Gains distribués)" : "Braquage marqué échoué", success ? 'success' : 'info');
         render();
     },
 
@@ -699,6 +741,7 @@ window.actions = {
             { k: 'can_approve_characters', l: 'Valider Fiches' },
             { k: 'can_manage_characters', l: 'Gérer Personnages (Suppr.)' },
             { k: 'can_manage_economy', l: 'Gérer Économie' },
+            { k: 'can_manage_illegal', l: 'Gérer Illégal (Stats/Braquages)' },
             { k: 'can_manage_staff', l: 'Gérer Staff' },
             { k: 'can_manage_inventory', l: 'Gérer Inventaires' },
             { k: 'can_change_team', l: 'Changer Équipe (Legal/Illegal)' }
@@ -948,23 +991,58 @@ const appRenderer = () => {
 
 // --- POLLING LOOP FOR SYNC (TIMERS & NOTIFS) ---
 const startPolling = () => {
-    // Increased frequency to 1000ms (1s) to make the Heist Timer smooth
+    // We do NOT call render() here anymore to prevent full page refreshes
     setInterval(async () => {
-        // Only if logged in and in relevant tabs
         if (!state.user || !state.activeCharacter) return;
         
-        // Update Heist Status
+        // Update Heist Status (Sync Data Only)
         if (state.activeHubPanel === 'illicit' && state.activeIllicitTab === 'heists') {
              await fetchActiveHeistLobby(state.activeCharacter.id);
-             if(state.activeHeistLobby && state.activeHeistLobby.status === 'active') render(); 
+             // If state changed drastically (e.g. from setup to active, or active to finished), trigger render once
+             // For simple timer updates, we use updateActiveTimers()
+             if (state.activeHeistLobby && state.activeHeistLobby.status !== 'active') {
+                 // Potentially refresh logic here if needed
+             }
         }
         
-        // Update Drug Status (Timers)
+        // Update Drug Status (Data Only)
          if (state.activeHubPanel === 'illicit' && state.activeIllicitTab === 'drugs') {
              await fetchDrugLab(state.activeCharacter.id);
-             if(state.drugLab && state.drugLab.current_batch) render();
         }
+
+        // UPDATE UI TIMERS ONLY (DOM Manipulation without full render)
+        updateActiveTimers();
+
     }, 1000); 
+};
+
+// New function to update timers in DOM without killing focus or reloading
+const updateActiveTimers = () => {
+    // 1. Heist Timer
+    const heistDisplay = document.getElementById('heist-timer-display');
+    if (heistDisplay && state.activeHeistLobby && state.activeHeistLobby.status === 'active') {
+        const now = Date.now();
+        const remaining = Math.max(0, Math.ceil((state.activeHeistLobby.end_time - now) / 1000));
+        
+        if (remaining <= 0) {
+            render(); // State change (active -> finished), so we render full page
+        } else {
+            heistDisplay.textContent = `${Math.floor(remaining / 60)}:${(remaining % 60).toString().padStart(2, '0')}`;
+        }
+    }
+
+    // 2. Drug Timer
+    const drugDisplay = document.getElementById('drug-timer-display');
+    if (drugDisplay && state.drugLab && state.drugLab.current_batch) {
+        const now = Date.now();
+        const remaining = Math.max(0, Math.ceil((state.drugLab.current_batch.end_time - now) / 1000));
+        
+        if (remaining <= 0) {
+             render(); // State change, render full page
+        } else {
+             drugDisplay.textContent = `${Math.floor(remaining / 60)}:${(remaining % 60).toString().padStart(2, '0')}`;
+        }
+    }
 };
 
 // Listen for the custom event from router/utils

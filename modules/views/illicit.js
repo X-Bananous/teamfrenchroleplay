@@ -1,5 +1,7 @@
 
 
+
+
 import { state } from '../state.js';
 import { createHeistLobby, startHeistSync } from '../services.js';
 import { showToast, showModal } from '../ui.js';
@@ -35,12 +37,12 @@ export const BLACK_MARKET_CATALOG = {
 };
 
 export const HEIST_DATA = [
-    { id: 'house', name: 'Cambriolage Maison', min: 100, max: 500, time: 60, rate: 70, icon: 'home' },
-    { id: 'gas', name: 'Station Service', min: 500, max: 1000, time: 105, rate: 65, icon: 'fuel' },
-    { id: 'atm', name: 'Braquage ATM', min: 1000, max: 5000, time: 90, rate: 50, icon: 'credit-card' },
-    { id: 'truck', name: 'Fourgon Blindé', min: 250000, max: 500000, time: 900, rate: 15, icon: 'truck' },
-    { id: 'jewelry', name: 'Bijouterie', min: 500000, max: 700000, time: 1020, rate: 10, icon: 'gem' },
-    { id: 'bank', name: 'Banque Centrale', min: 700000, max: 1000000, time: 1200, rate: 5, icon: 'landmark' }
+    { id: 'house', name: 'Cambriolage Maison', min: 100, max: 500, time: 60, rate: 100, icon: 'home', requiresValidation: false },
+    { id: 'gas', name: 'Station Service', min: 500, max: 1000, time: 105, rate: 100, icon: 'fuel', requiresValidation: false },
+    { id: 'atm', name: 'Braquage ATM', min: 1000, max: 5000, time: 90, rate: 100, icon: 'credit-card', requiresValidation: false },
+    { id: 'truck', name: 'Fourgon Blindé', min: 250000, max: 500000, time: 900, rate: 15, icon: 'truck', requiresValidation: true },
+    { id: 'jewelry', name: 'Bijouterie', min: 500000, max: 700000, time: 1020, rate: 10, icon: 'gem', requiresValidation: true },
+    { id: 'bank', name: 'Banque Centrale', min: 700000, max: 1000000, time: 1200, rate: 5, icon: 'landmark', requiresValidation: true }
 ];
 
 export const DRUG_DATA = {
@@ -197,7 +199,7 @@ export const IllicitView = () => {
                          </h3>
                          
                          ${!isFinished ? `
-                             <div class="text-4xl font-mono font-bold text-white mb-2 animate-pulse">
+                             <div id="drug-timer-display" class="text-4xl font-mono font-bold text-white mb-2 animate-pulse">
                                 ${Math.floor(remaining / 60)}:${(remaining % 60).toString().padStart(2, '0')}
                              </div>
                              <p class="text-xs text-gray-400">Ne quittez pas le panel pour assurer la synchro.</p>
@@ -320,7 +322,7 @@ export const IllicitView = () => {
         `;
     }
 
-    // 3. BRAQUAGES (HEISTS) - Code inchangé, repris du bloc précédent
+    // 3. BRAQUAGES (HEISTS)
     if (state.activeIllicitTab === 'heists') {
         // --- LOBBY ACTIF ---
         if (state.activeHeistLobby) {
@@ -383,10 +385,19 @@ export const IllicitView = () => {
                 let remaining = Math.max(0, Math.ceil((lobby.end_time - now) / 1000));
                 const totalDuration = (lobby.end_time - lobby.start_time) / 1000;
                 const progress = ((totalDuration - remaining) / totalDuration) * 100;
+                
+                // If finished and just waiting for check/finish
                 if (remaining <= 0) {
                      return `<div class="animate-fade-in flex items-center justify-center h-full"><div class="glass-panel p-8 text-center max-w-md w-full"><div class="w-20 h-20 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center mb-6 animate-bounce"><i data-lucide="check" class="w-10 h-10"></i></div><h2 class="text-2xl font-bold text-white mb-2">Opération Terminée</h2><p class="text-gray-400 mb-6">L'équipe est de retour au QG.</p>${amHost ? `<button onclick="actions.finishHeist()" class="glass-btn w-full py-3 rounded-xl font-bold">Voir le résultat et Partager</button>` : `<p class="text-sm text-gray-500 italic">En attente du chef pour le partage...</p>`}</div></div>`;
                 }
-                return `<div class="animate-fade-in flex items-center justify-center h-full"><div class="glass-panel p-10 text-center max-w-lg w-full relative overflow-hidden"><div class="absolute inset-0 bg-red-500/5 animate-pulse"></div><div class="relative z-10"><div class="w-20 h-20 rounded-full bg-red-500/20 text-red-400 mx-auto flex items-center justify-center mb-6"><i data-lucide="timer" class="w-10 h-10 animate-spin"></i></div><h2 class="text-2xl font-bold text-white mb-2">Braquage en cours...</h2><div class="text-xs text-gray-500 uppercase tracking-widest mb-6">${heistInfo.name}</div><div class="text-5xl font-mono font-bold text-white mb-8 tracking-wider">${Math.floor(remaining / 60)}:${(remaining % 60).toString().padStart(2, '0')}</div><div class="h-2 w-full bg-gray-800 rounded-full overflow-hidden mb-4"><div class="h-full bg-red-500 transition-all duration-1000" style="width: ${progress}%"></div></div><p class="text-xs text-gray-500 mt-4">Restez connectés. La police est en route.</p></div></div></div>`;
+                
+                // Add specific ID "heist-timer-display" for partial updates without re-render
+                return `<div class="animate-fade-in flex items-center justify-center h-full"><div class="glass-panel p-10 text-center max-w-lg w-full relative overflow-hidden"><div class="absolute inset-0 bg-red-500/5 animate-pulse"></div><div class="relative z-10"><div class="w-20 h-20 rounded-full bg-red-500/20 text-red-400 mx-auto flex items-center justify-center mb-6"><i data-lucide="timer" class="w-10 h-10"></i></div><h2 class="text-2xl font-bold text-white mb-2">Braquage en cours...</h2><div class="text-xs text-gray-500 uppercase tracking-widest mb-6">${heistInfo.name}</div><div id="heist-timer-display" class="text-5xl font-mono font-bold text-white mb-8 tracking-wider">${Math.floor(remaining / 60)}:${(remaining % 60).toString().padStart(2, '0')}</div><div class="h-2 w-full bg-gray-800 rounded-full overflow-hidden mb-4"><div class="h-full bg-red-500 transition-all duration-1000" style="width: ${progress}%"></div></div><p class="text-xs text-gray-500 mt-4">Restez connectés. La police est en route.</p></div></div></div>`;
+            }
+
+            // STATUS: PENDING REVIEW (For High Tier Heists)
+            if (lobby.status === 'pending_review') {
+                 return `<div class="animate-fade-in flex items-center justify-center h-full"><div class="glass-panel p-8 text-center max-w-md w-full border border-purple-500/30"><div class="w-20 h-20 rounded-full bg-purple-500/20 text-purple-400 mx-auto flex items-center justify-center mb-6"><i data-lucide="shield-alert" class="w-10 h-10"></i></div><h2 class="text-2xl font-bold text-white mb-2">Validation Requise</h2><p class="text-gray-400 mb-6 text-sm">Les autorités examinent la scène. Un administrateur doit valider la réussite de ce braquage d'envergure.</p><div class="p-3 bg-white/5 rounded-xl text-xs text-gray-400 italic">Statut: En attente de Staff...</div><button onclick="actions.setIllicitTab('menu')" class="mt-6 text-xs text-gray-500 hover:text-white">Retour au menu (L'opération continue en fond)</button></div></div>`;
             }
         }
         
@@ -398,7 +409,7 @@ export const IllicitView = () => {
                     <div class="text-right"><h2 class="text-xl font-bold text-white">Opérations Disponibles</h2><p class="text-xs text-gray-400">Créez votre équipe ou rejoignez-en une.</p></div>
                 </div>
                 ${state.availableHeistLobbies.length > 0 ? `<div class="glass-panel p-6 rounded-2xl border-orange-500/20"><h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2"><i data-lucide="users" class="w-4 h-4 text-orange-400"></i> Équipes en recrutement</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${state.availableHeistLobbies.map(lobby => { const info = HEIST_DATA.find(h => h.id === lobby.heist_type); return `<div class="bg-white/5 p-4 rounded-xl border border-white/5 hover:border-orange-500/30 transition-all"><div class="flex justify-between items-start mb-2"><div class="font-bold text-white">${info.name}</div><div class="text-xs text-gray-500">Chef: ${lobby.host_name}</div></div><div class="text-xs text-gray-400 mb-3">Statut: Préparation</div><button onclick="actions.requestJoinLobby('${lobby.id}')" class="glass-btn-secondary w-full py-2 rounded-lg text-xs font-bold hover:bg-orange-500/20 hover:text-orange-400">Postuler</button></div>`; }).join('')}</div></div>` : ''}
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${HEIST_DATA.map(h => `<div class="glass-panel p-6 rounded-2xl flex flex-col relative overflow-hidden group hover:border-orange-500/30 transition-all"><div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><i data-lucide="${h.icon}" class="w-24 h-24 text-white"></i></div><div class="flex items-center gap-4 mb-4 relative z-10"><div class="w-12 h-12 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center"><i data-lucide="${h.icon}" class="w-6 h-6"></i></div><div><h3 class="font-bold text-white text-lg">${h.name}</h3><div class="text-xs text-gray-400">Difficulté: <span class="${h.rate < 30 ? 'text-red-400' : 'text-emerald-400'}">${100 - h.rate}/100</span></div></div></div><div class="space-y-3 mb-6 relative z-10"><div class="flex justify-between text-sm border-b border-white/5 pb-2"><span class="text-gray-500">Gain Estimé</span><span class="text-emerald-400 font-mono font-bold">$${(h.min/1000).toFixed(0)}k - ${(h.max/1000).toFixed(0)}k</span></div><div class="flex justify-between text-sm border-b border-white/5 pb-2"><span class="text-gray-500">Durée</span><span class="text-white">${Math.floor(h.time / 60)} min ${(h.time % 60) > 0 ? (h.time % 60)+'s' : ''}</span></div></div><button onclick="actions.createLobby('${h.id}')" class="mt-auto glass-btn w-full py-3 rounded-xl font-bold hover:scale-[1.02] transition-transform"><i data-lucide="plus-circle" class="w-4 h-4 mr-2"></i> Monter une équipe</button></div>`).join('')}</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${HEIST_DATA.map(h => `<div class="glass-panel p-6 rounded-2xl flex flex-col relative overflow-hidden group hover:border-orange-500/30 transition-all"><div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><i data-lucide="${h.icon}" class="w-24 h-24 text-white"></i></div><div class="flex items-center gap-4 mb-4 relative z-10"><div class="w-12 h-12 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center"><i data-lucide="${h.icon}" class="w-6 h-6"></i></div><div><h3 class="font-bold text-white text-lg">${h.name}</h3><div class="text-xs text-gray-400">Difficulté: <span class="${h.rate < 30 ? 'text-red-400' : 'text-emerald-400'}">${h.requiresValidation ? 'Validation Staff' : 'Standard'}</span></div></div></div><div class="space-y-3 mb-6 relative z-10"><div class="flex justify-between text-sm border-b border-white/5 pb-2"><span class="text-gray-500">Gain Estimé</span><span class="text-emerald-400 font-mono font-bold">$${(h.min/1000).toFixed(0)}k - ${(h.max/1000).toFixed(0)}k</span></div><div class="flex justify-between text-sm border-b border-white/5 pb-2"><span class="text-gray-500">Durée</span><span class="text-white">${Math.floor(h.time / 60)} min ${(h.time % 60) > 0 ? (h.time % 60)+'s' : ''}</span></div></div><button onclick="actions.createLobby('${h.id}')" class="mt-auto glass-btn w-full py-3 rounded-xl font-bold hover:scale-[1.02] transition-transform"><i data-lucide="plus-circle" class="w-4 h-4 mr-2"></i> Monter une équipe</button></div>`).join('')}</div>
             </div>`;
     }
 

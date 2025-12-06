@@ -1,5 +1,7 @@
 
 
+
+
 import { state } from '../state.js';
 import { CONFIG } from '../config.js';
 import { hasPermission } from '../utils.js';
@@ -29,6 +31,11 @@ export const StaffView = () => {
                     Économie
                 </button>
             ` : ''}
+            ${hasPermission('can_manage_illegal') ? `
+                <button onclick="actions.setStaffTab('illegal')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${state.activeStaffTab === 'illegal' ? 'bg-white/10 text-white border-b-2 border-red-500' : 'text-gray-400 hover:text-white'}">
+                    Illégal
+                </button>
+            ` : ''}
             ${hasPermission('can_manage_staff') ? `
                 <button onclick="actions.setStaffTab('permissions')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${state.activeStaffTab === 'permissions' ? 'bg-white/10 text-white border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}">
                     Permissions
@@ -37,8 +44,7 @@ export const StaffView = () => {
         </div>
     `;
 
-    // --- MODALS (Include Economy & Inventory Modals - Kept same as previous version but abbreviated here for xml brevity, assumed preserved by context) ---
-    // RE-INJECTING MODALS CODE
+    // --- MODALS ---
     let economyModalHtml = '';
     if (state.economyModal.isOpen && hasPermission('can_manage_economy')) {
         economyModalHtml = `
@@ -216,7 +222,26 @@ export const StaffView = () => {
             const q = state.staffSearchQuery.toLowerCase();
             allChars = allChars.filter(c => c.first_name.toLowerCase().includes(q) || c.last_name.toLowerCase().includes(q) || c.discord_username.toLowerCase().includes(q));
         }
+        
+        // GRAPHS DATA
+        const { totalMoney, totalCash, totalBank } = state.serverStats;
+        const bankPercent = totalMoney > 0 ? (totalBank / totalMoney) * 100 : 0;
+        const cashPercent = totalMoney > 0 ? (totalCash / totalMoney) * 100 : 0;
+
         content = `
+            <!-- Graphs Section -->
+            <div class="mb-8 glass-panel p-6 rounded-2xl">
+                <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><i data-lucide="pie-chart" class="w-5 h-5 text-emerald-400"></i> Masse Monétaire Totale: $${totalMoney.toLocaleString()}</h3>
+                <div class="h-6 w-full bg-gray-800 rounded-full overflow-hidden flex mb-2">
+                    <div style="width: ${bankPercent}%" class="h-full bg-emerald-500 transition-all duration-500 hover:bg-emerald-400" title="Banque: $${totalBank.toLocaleString()}"></div>
+                    <div style="width: ${cashPercent}%" class="h-full bg-blue-500 transition-all duration-500 hover:bg-blue-400" title="Espèces: $${totalCash.toLocaleString()}"></div>
+                </div>
+                <div class="flex justify-between text-xs text-gray-400">
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-emerald-500 rounded-full"></div> Banque ($${totalBank.toLocaleString()})</div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-blue-500 rounded-full"></div> Espèces ($${totalCash.toLocaleString()})</div>
+                </div>
+            </div>
+
             <div class="mb-6 flex justify-between items-center bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10">
                 <div><h3 class="font-bold text-white">Actions Globales</h3><p class="text-xs text-gray-400">Affecte l'intégralité des comptes bancaires du serveur.</p></div>
                 <button onclick="actions.openEconomyModal('ALL')" class="glass-btn-secondary px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"><i data-lucide="globe" class="w-4 h-4"></i> Gérer tout le monde</button>
@@ -238,6 +263,75 @@ export const StaffView = () => {
                 </table>
             </div>
         `;
+    } else if (state.activeStaffTab === 'illegal' && hasPermission('can_manage_illegal')) {
+        // STATS DROGUE
+        const { totalCoke, totalWeed } = state.serverStats;
+        const totalDrugs = totalCoke + totalWeed;
+        const cokePercent = totalDrugs > 0 ? (totalCoke / totalDrugs) * 100 : 0;
+        const weedPercent = totalDrugs > 0 ? (totalWeed / totalDrugs) * 100 : 0;
+
+        // HEIST VALIDATION LIST
+        const pendingHeists = state.pendingHeistReviews || [];
+
+        content = `
+            <!-- Drug Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                 <div class="glass-panel p-6 rounded-2xl">
+                    <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><i data-lucide="flask-conical" class="w-5 h-5 text-indigo-400"></i> Drogue en Circulation: ${totalDrugs}g</h3>
+                    <div class="h-6 w-full bg-gray-800 rounded-full overflow-hidden flex mb-2">
+                        <div style="width: ${cokePercent}%" class="h-full bg-white transition-all duration-500" title="Coke: ${totalCoke}g"></div>
+                        <div style="width: ${weedPercent}%" class="h-full bg-emerald-500 transition-all duration-500" title="Weed: ${totalWeed}g"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-400">
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 bg-white rounded-full"></div> Cocaïne (${totalCoke}g)</div>
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 bg-emerald-500 rounded-full"></div> Cannabis (${totalWeed}g)</div>
+                    </div>
+                 </div>
+
+                 <div class="glass-panel p-6 rounded-2xl flex flex-col justify-center">
+                    <h3 class="text-lg font-bold text-white mb-2">Contrôle Braquages</h3>
+                    <p class="text-sm text-gray-400">Validez les opérations criminelles majeures (Banque, Bijouterie, etc.) pour déterminer le succès RP.</p>
+                 </div>
+            </div>
+
+            <!-- Heist Reviews -->
+            <div class="glass-panel rounded-2xl p-6">
+                <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><i data-lucide="shield-alert" class="w-5 h-5 text-red-400"></i> Braquages en Attente de Validation</h3>
+                
+                ${pendingHeists.length === 0 ? '<div class="text-center text-gray-500 py-6 italic">Aucune opération en attente.</div>' : `
+                    <div class="space-y-4">
+                        ${pendingHeists.map(lobby => {
+                            // Find heist name via ID (assuming HEIST_DATA is imported or we hardcode names for display safety)
+                            const heistName = lobby.heist_type === 'bank' ? 'Banque Centrale' : 
+                                              lobby.heist_type === 'jewelry' ? 'Bijouterie' : 
+                                              lobby.heist_type === 'truck' ? 'Fourgon Blindé' : lobby.heist_type;
+                            
+                            return `
+                                <div class="bg-white/5 p-4 rounded-xl border border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+                                    <div>
+                                        <div class="font-bold text-white text-lg flex items-center gap-2">
+                                            ${heistName}
+                                            <span class="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">En cours</span>
+                                        </div>
+                                        <div class="text-sm text-gray-400">Chef d'équipe: <span class="text-white">${lobby.characters?.first_name} ${lobby.characters?.last_name}</span></div>
+                                        <div class="text-xs text-gray-500 mt-1">ID: ${lobby.id}</div>
+                                    </div>
+                                    <div class="flex gap-3">
+                                        <button onclick="actions.validateHeist('${lobby.id}', true)" class="glass-btn bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-bold text-sm shadow-lg shadow-emerald-900/20">
+                                            Succès (Gain)
+                                        </button>
+                                        <button onclick="actions.validateHeist('${lobby.id}', false)" class="glass-btn bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg font-bold text-sm shadow-lg shadow-red-900/20">
+                                            Échec (Police)
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `}
+            </div>
+        `;
+
     } else if (state.activeStaffTab === 'permissions' && hasPermission('can_manage_staff')) {
         content = `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -264,6 +358,7 @@ export const StaffView = () => {
                                     <div class="flex flex-wrap gap-1 mt-1">
                                         ${m.permissions.can_approve_characters ? '<span class="text-[9px] px-1 bg-blue-500/20 text-blue-300 rounded">Candid</span>' : ''}
                                         ${m.permissions.can_manage_economy ? '<span class="text-[9px] px-1 bg-emerald-500/20 text-emerald-300 rounded">Eco</span>' : ''}
+                                        ${m.permissions.can_manage_illegal ? '<span class="text-[9px] px-1 bg-red-500/20 text-red-300 rounded">Illegal</span>' : ''}
                                         ${m.permissions.can_manage_staff ? '<span class="text-[9px] px-1 bg-purple-500/20 text-purple-300 rounded">Admin</span>' : ''}
                                         ${m.permissions.can_manage_characters ? '<span class="text-[9px] px-1 bg-orange-500/20 text-orange-300 rounded">DB</span>' : ''}
                                         ${m.permissions.can_manage_inventory ? '<span class="text-[9px] px-1 bg-teal-500/20 text-teal-300 rounded">Inv</span>' : ''}
