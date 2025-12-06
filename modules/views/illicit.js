@@ -2,6 +2,8 @@
 
 
 
+
+
 import { state } from '../state.js';
 import { createHeistLobby, startHeistSync } from '../services.js';
 import { showToast, showModal } from '../ui.js';
@@ -67,14 +69,56 @@ export const IllicitView = () => {
 
     // 1. MENU PRINCIPAL ILLÉGAL
     if (state.activeIllicitTab === 'menu') {
+        // --- SUMMARY WIDGETS ---
+        let summaryHtml = '';
+        
+        // Active Heist Check
+        if (state.activeHeistLobby && state.activeHeistLobby.status === 'active') {
+             const hData = HEIST_DATA.find(h => h.id === state.activeHeistLobby.heist_type);
+             summaryHtml += `
+                <div class="glass-panel p-4 mb-4 rounded-xl border border-orange-500/30 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-orange-500/20 rounded text-orange-400 animate-pulse"><i data-lucide="timer" class="w-5 h-5"></i></div>
+                        <div>
+                            <div class="text-xs font-bold text-orange-400 uppercase">Braquage en cours</div>
+                            <div class="text-white font-bold">${hData ? hData.name : 'Opération'}</div>
+                        </div>
+                    </div>
+                    <div id="heist-timer-display" class="font-mono text-xl font-bold text-white">00:00</div>
+                </div>
+             `;
+        }
+
+        // Active Drug Check
+        if (state.drugLab && state.drugLab.current_batch) {
+             const batch = state.drugLab.current_batch;
+             const drugName = batch.type === 'coke' ? 'Cocaïne' : 'Cannabis';
+             summaryHtml += `
+                <div class="glass-panel p-4 mb-4 rounded-xl border border-emerald-500/30 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-emerald-500/20 rounded text-emerald-400"><i data-lucide="flask-conical" class="w-5 h-5"></i></div>
+                        <div>
+                            <div class="text-xs font-bold text-emerald-400 uppercase">Production : ${batch.stage}</div>
+                            <div class="text-white font-bold">${batch.amount}g ${drugName}</div>
+                        </div>
+                    </div>
+                    <div id="drug-timer-display" class="font-mono text-xl font-bold text-white">00:00</div>
+                </div>
+             `;
+        }
+
         return `
             <div class="animate-fade-in max-w-5xl mx-auto flex flex-col items-center justify-center min-h-[60vh]">
-                <div class="text-center mb-10">
+                <div class="text-center mb-8">
                     <div class="w-20 h-20 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4 border border-red-500/20 shadow-[0_0_40px_rgba(239,68,68,0.2)]">
                         <i data-lucide="ghost" class="w-10 h-10 text-red-500"></i>
                     </div>
                     <h2 class="text-3xl font-bold text-white tracking-tight">Réseau Souterrain</h2>
                     <p class="text-gray-400 mt-2">Choisissez votre activité criminelle.</p>
+                </div>
+
+                <div class="w-full max-w-2xl mb-6">
+                    ${summaryHtml}
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">

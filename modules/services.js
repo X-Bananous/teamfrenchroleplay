@@ -1,6 +1,7 @@
 
 
 
+
 import { state } from './state.js';
 import { showToast } from './ui.js';
 import { HEIST_DATA } from './views/illicit.js';
@@ -17,8 +18,11 @@ export const loadCharacters = async () => {
 // Staff Data Fetchers
 export const fetchCharactersWithProfiles = async (statusFilter = null) => {
     if (!state.user || !state.supabase) return [];
-    let query = state.supabase.from('characters').select('*');
+    
+    // Modified query to include bank accounts
+    let query = state.supabase.from('characters').select('*, bank_accounts(bank_balance, cash_balance)');
     if (statusFilter) query = query.eq('status', statusFilter);
+    
     const { data: chars } = await query;
     if (!chars || chars.length === 0) return [];
 
@@ -27,10 +31,13 @@ export const fetchCharactersWithProfiles = async (statusFilter = null) => {
 
     return chars.map(char => {
         const profile = profiles?.find(p => p.id === char.user_id);
+        const bank = char.bank_accounts && char.bank_accounts.length > 0 ? char.bank_accounts[0] : { bank_balance: 0, cash_balance: 0 };
         return {
             ...char,
             discord_username: profile ? profile.username : 'Unknown',
-            discord_avatar: profile ? profile.avatar_url : null
+            discord_avatar: profile ? profile.avatar_url : null,
+            bank_balance: bank.bank_balance,
+            cash_balance: bank.cash_balance
         };
     });
 };
@@ -65,6 +72,17 @@ export const searchProfiles = async (query) => {
     }
     const { data } = await dbQuery.limit(10);
     return data || [];
+};
+
+export const fetchGlobalHeists = async () => {
+    // Fetches active major heists for the news bubble
+    const { data: heists } = await state.supabase
+        .from('heist_lobbies')
+        .select('*, characters(first_name, last_name)')
+        .in('status', ['active', 'pending_review'])
+        .in('heist_type', ['bank', 'jewelry', 'truck']); // Only major heists
+    
+    state.globalActiveHeists = heists || [];
 };
 
 // --- STAFF STATS & ILLEGAL MANAGEMENT ---

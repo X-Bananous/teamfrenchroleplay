@@ -1,5 +1,7 @@
 
 
+
+
 import { state } from '../state.js';
 import { BankView } from './bank.js';
 import { StaffView } from './staff.js';
@@ -7,6 +9,7 @@ import { AssetsView } from './assets.js';
 import { IllicitView } from './illicit.js';
 import { hasPermission } from '../utils.js';
 import { ui } from '../ui.js';
+import { HEIST_DATA } from './illicit.js';
 
 export const HubView = () => {
     // --- CHECK ALIGNMENT ---
@@ -55,9 +58,48 @@ export const HubView = () => {
 
         const showStaffCard = Object.keys(state.user.permissions || {}).length > 0 || state.user.isFounder;
         const isIllegal = state.activeCharacter?.alignment === 'illegal';
+        
+        // --- NEWS BUBBLE (Flash Info) ---
+        let newsHtml = '';
+        if (state.globalActiveHeists && state.globalActiveHeists.length > 0) {
+            newsHtml = `
+                <div class="col-span-1 md:col-span-2 lg:col-span-3 mb-2 animate-pulse-slow">
+                    <div class="glass-panel p-4 rounded-2xl bg-gradient-to-r from-red-900/40 to-black border-red-500/30 flex items-center gap-4">
+                        <div class="p-2 bg-red-500 rounded-lg animate-pulse">
+                            <i data-lucide="radio" class="w-5 h-5 text-white"></i>
+                        </div>
+                        <div class="flex-1 overflow-hidden">
+                            <div class="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-0.5">Flash Info • Alerte Générale</div>
+                            <div class="text-white font-medium text-sm truncate">
+                                ${state.globalActiveHeists.map(h => {
+                                    const hData = HEIST_DATA.find(d => d.id === h.heist_type);
+                                    return `Braquage en cours : ${hData ? hData.name : h.heist_type}`;
+                                }).join(' • ')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+             newsHtml = `
+                <div class="col-span-1 md:col-span-2 lg:col-span-3 mb-2">
+                    <div class="glass-panel p-4 rounded-2xl border-white/5 flex items-center gap-4 opacity-70">
+                        <div class="p-2 bg-white/10 rounded-lg">
+                            <i data-lucide="sun" class="w-5 h-5 text-yellow-200"></i>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">Flash Info</div>
+                            <div class="text-gray-300 font-medium text-sm">Aucun incident majeur à signaler à Los Angeles.</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
         content = `
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
+                ${newsHtml}
+                
                 <!-- Bank Card -->
                 <button onclick="actions.setHubPanel('bank')" class="glass-card group text-left p-6 rounded-[24px] h-64 flex flex-col justify-between relative overflow-hidden cursor-pointer border-emerald-500/20">
                     <div class="absolute inset-0 bg-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>

@@ -2,6 +2,8 @@
 
 
 
+
+
 /**
  * TFRP Core Logic
  * Modularized Structure
@@ -30,7 +32,8 @@ import {
     updateDrugLab,
     fetchServerStats,
     fetchPendingHeistReviews,
-    adminResolveHeist
+    adminResolveHeist,
+    fetchGlobalHeists
 } from './modules/services.js';
 import { HEIST_DATA, DRUG_DATA } from './modules/views/illicit.js';
 import { generateInventoryRow } from './modules/views/assets.js';
@@ -184,7 +187,9 @@ window.actions = {
         state.activeHubPanel = panel;
         
         // --- DATA SYNC ON PANEL CHANGE ---
-        if (panel === 'bank' && state.activeCharacter) {
+        if (panel === 'main') {
+            await fetchGlobalHeists();
+        } else if (panel === 'bank' && state.activeCharacter) {
             state.selectedRecipient = null;
             state.filteredRecipients = [];
             ui.showToast('Connexion bancaire...', 'info');
@@ -198,6 +203,9 @@ window.actions = {
             state.activeIllicitTab = 'menu'; // Reset to menu
             state.blackMarketSearch = ''; // Reset filter
             await fetchBankData(state.activeCharacter.id);
+            // Fetch status for menu summary
+            await fetchActiveHeistLobby(state.activeCharacter.id);
+            await fetchDrugLab(state.activeCharacter.id);
         } else if (panel === 'staff') {
             state.staffSearchQuery = ''; 
             
@@ -915,6 +923,12 @@ window.actions = {
         const targetId = state.economyModal.targetId;
         const isGlobal = targetId === 'ALL';
         
+        // Prevent Adding Money by Percentage (Inflation Protection)
+        if (action === 'add' && mode === 'percent') {
+            ui.showToast("L'ajout par pourcentage (inflation) est interdit.", 'error');
+            return;
+        }
+
         ui.showModal({
             title: "Action Économique Critique",
             content: `Vous allez ${action === 'add' ? 'Ajouter' : 'Retirer'} <b>${amountVal}${mode === 'percent' ? '%' : '$'}</b> ${isGlobal ? 'à TOUS les joueurs' : 'au joueur cible'}.`,
@@ -996,7 +1010,8 @@ const startPolling = () => {
         if (!state.user || !state.activeCharacter) return;
         
         // Update Heist Status (Sync Data Only)
-        if (state.activeHubPanel === 'illicit' && state.activeIllicitTab === 'heists') {
+        // Fetched for both illicit tabs AND main menu summary
+        if (state.activeHubPanel === 'illicit') {
              await fetchActiveHeistLobby(state.activeCharacter.id);
              // If state changed drastically (e.g. from setup to active, or active to finished), trigger render once
              // For simple timer updates, we use updateActiveTimers()
@@ -1006,7 +1021,7 @@ const startPolling = () => {
         }
         
         // Update Drug Status (Data Only)
-         if (state.activeHubPanel === 'illicit' && state.activeIllicitTab === 'drugs') {
+         if (state.activeHubPanel === 'illicit') {
              await fetchDrugLab(state.activeCharacter.id);
         }
 

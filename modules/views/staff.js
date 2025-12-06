@@ -2,6 +2,8 @@
 
 
 
+
+
 import { state } from '../state.js';
 import { CONFIG } from '../config.js';
 import { hasPermission } from '../utils.js';
@@ -251,11 +253,20 @@ export const StaffView = () => {
             </div>
             <div class="glass-panel overflow-hidden rounded-xl">
                  <table class="w-full text-left border-collapse">
-                    <thead class="text-xs uppercase text-gray-500 tracking-wider"><tr><th class="p-4 border-b border-white/5">Citoyen</th><th class="p-4 border-b border-white/5 text-right">Action</th></tr></thead>
+                    <thead class="text-xs uppercase text-gray-500 tracking-wider">
+                        <tr>
+                            <th class="p-4 border-b border-white/5">Citoyen</th>
+                            <th class="p-4 border-b border-white/5 text-right text-emerald-400">Banque</th>
+                            <th class="p-4 border-b border-white/5 text-right text-blue-400">Espèces</th>
+                            <th class="p-4 border-b border-white/5 text-right">Action</th>
+                        </tr>
+                    </thead>
                     <tbody class="text-sm divide-y divide-white/5">
                         ${allChars.filter(c => c.status === 'accepted').map(c => `
                             <tr class="hover:bg-white/5">
                                 <td class="p-4"><div class="font-medium text-white">${c.first_name} ${c.last_name}</div><div class="text-xs text-blue-300">@${c.discord_username}</div></td>
+                                <td class="p-4 text-right font-mono">$${(c.bank_balance||0).toLocaleString()}</td>
+                                <td class="p-4 text-right font-mono">$${(c.cash_balance||0).toLocaleString()}</td>
                                 <td class="p-4 text-right"><button onclick="actions.openEconomyModal('${c.id}', '${c.first_name} ${c.last_name}')" class="glass-btn-secondary px-3 py-1 rounded text-xs hover:text-emerald-400 border-white/10"><i data-lucide="coins" class="w-3 h-3 mr-1"></i> Gérer</button></td>
                             </tr>
                         `).join('')}
@@ -362,6 +373,8 @@ export const StaffView = () => {
                                         ${m.permissions.can_manage_staff ? '<span class="text-[9px] px-1 bg-purple-500/20 text-purple-300 rounded">Admin</span>' : ''}
                                         ${m.permissions.can_manage_characters ? '<span class="text-[9px] px-1 bg-orange-500/20 text-orange-300 rounded">DB</span>' : ''}
                                         ${m.permissions.can_manage_inventory ? '<span class="text-[9px] px-1 bg-teal-500/20 text-teal-300 rounded">Inv</span>' : ''}
+                                        ${m.permissions.can_change_team ? '<span class="text-[9px] px-1 bg-pink-500/20 text-pink-300 rounded">Team</span>' : ''}
+                                        ${m.permissions.can_bypass_login ? '<span class="text-[9px] px-1 bg-yellow-500/20 text-yellow-300 rounded">Bypass</span>' : ''}
                                     </div>
                                 </div>
                             </button>

@@ -68,11 +68,15 @@ export const state = {
     blackMarketSearch: '', // Search filter for black market
     drugLab: null, // Data from 'drug_labs' table
     
+    // Global News / Events
+    globalActiveHeists: [], // Active major heists for the hub news bubble
+    
     // UI State
     currentView: 'login', // login, select, create, hub, access_denied
     activeHubPanel: 'main', // main, bank, services, illicit, staff, assets
     activeStaffTab: 'applications', // applications, database, permissions, economy, illegal
     isLoggingIn: false, // UI state for popup login
+    alignmentModalShown: false, // Legacy character fix
     
     supabase: null,
     queueCount: Math.floor(Math.random() * 8) + 1
