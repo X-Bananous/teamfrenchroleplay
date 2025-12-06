@@ -1,3 +1,4 @@
+
 import { state } from '../state.js';
 import { CONFIG } from '../config.js';
 import { HEIST_DATA } from './illicit.js';
@@ -139,8 +140,8 @@ export const ServicesView = () => {
                             </div>
                             <div>
                                 <div class="text-xs text-gray-400 uppercase tracking-wide">Conducteur</div>
-                                <div class="font-bold text-white">${v.owner}</div>
-                                <div class="text-xs text-indigo-300 mt-1 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i> ${v.location}</div>
+                                <div class="font-bold text-white">${v.Owner || v.owner || 'Inconnu'}</div>
+                                <div class="text-xs text-indigo-300 mt-1 flex items-center gap-1">${v.Name || v.name || 'Véhicule'} ${v.Texture ? `(${v.Texture})` : ''}</div>
                             </div>
                         </div>
                     `).join('') : '<div class="col-span-3 text-center text-gray-500 py-10">Aucun véhicule tracké pour le moment.</div>'}

@@ -1,8 +1,4 @@
 
-
-
-
-
 export const state = {
     user: null, // Données Discord + Permissions
     accessToken: null,
@@ -37,7 +33,8 @@ export const state = {
         joinKey: '?????',
         bans: [], // API ERLC Bans
         modCalls: [], // API ERLC Mod Calls
-        vehicles: [] // API ERLC Vehicles
+        vehicles: [], // API ERLC Vehicles
+        killLogs: [] // API ERLC Kill Logs
     },
     emergencyCalls: [], // 911 Calls
     

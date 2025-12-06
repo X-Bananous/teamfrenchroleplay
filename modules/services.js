@@ -1,10 +1,4 @@
 
-
-
-
-
-
-
 import { state } from './state.js';
 import { showToast } from './ui.js';
 import { HEIST_DATA } from './views/illicit.js';
@@ -105,48 +99,77 @@ export const fetchGlobalHeists = async () => {
     state.globalActiveHeists = heists || [];
 };
 
-// --- ERLC API ---
+// --- ERLC API FULL INTEGRATION ---
 export const fetchERLCData = async () => {
-    try {
-        const response = await fetch(CONFIG.ERLC_API_URL, {
-            headers: { 'Server-Key': CONFIG.ERLC_API_KEY }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            
-            // Basic Server Info
-            state.erlcData.players = data.Players || [];
-            state.erlcData.queue = data.Queue || [];
-            state.erlcData.maxPlayers = data.MaxPlayers || 42;
-            state.erlcData.currentPlayers = data.CurrentPlayers || (data.Players ? data.Players.length : 0);
-            state.erlcData.joinKey = data.JoinKey || 'Inconnu';
+    const headers = { 'Server-Key': CONFIG.ERLC_API_KEY };
+    const baseUrl = CONFIG.ERLC_API_URL; // e.g. https://api.policeroleplay.community/v1/server
 
-            // IMPORTANT: The Public API endpoint provided (/v1/server) typically does NOT return Vehicles, Bans or ModCalls.
-            // These usually require specific Private API endpoints (like /v1/server/command/...).
-            // For this implementation, we map what is available, and if the API key has extended permissions, 
-            // we would fetch from those endpoints.
-            // MOCKING extended data for UI demonstration based on user request (as if the API provided it)
-            // In a real scenario, you would make separate fetch calls here.
-            
-            // Simulation of advanced data (since standard public API doesn't give them)
-            // If the user has a specific endpoint for these, it should be added here.
-            // For now, we keep them empty or mocked to prevent crashes.
-            state.erlcData.bans = []; 
-            state.erlcData.modCalls = [];
-            
-            // Map players to vehicles for the "Vehicles on Map" feature
-            // Using player list to simulate vehicle presence on map
-            if (state.erlcData.players) {
-                state.erlcData.vehicles = state.erlcData.players.map(p => ({
-                    owner: p.Name || p.Username,
-                    vehicle: "Véhicule Détecté", // API doesn't give vehicle model
-                    location: "En mouvement" // API doesn't give coords
-                }));
-            }
+    // We need to fetch multiple endpoints in parallel
+    const endpoints = [
+        baseUrl, // Base info (JoinKey, MaxPlayers)
+        `${baseUrl}/players`,
+        `${baseUrl}/queue`,
+        `${baseUrl}/vehicles`,
+        `${baseUrl}/modcalls`,
+        `${baseUrl}/bans`,
+        `${baseUrl}/killlogs`
+    ];
+
+    try {
+        const results = await Promise.allSettled(
+            endpoints.map(url => fetch(url, { headers }).then(res => res.ok ? res.json() : null))
+        );
+
+        // Destructure results [Base, Players, Queue, Vehicles, ModCalls, Bans, KillLogs]
+        const [baseRes, playersRes, queueRes, vehiclesRes, modRes, bansRes, killRes] = results;
+
+        // Process Base Info
+        if (baseRes.status === 'fulfilled' && baseRes.value) {
+            const data = baseRes.value;
+            state.erlcData.joinKey = data.JoinKey || '?????';
+            state.erlcData.maxPlayers = data.MaxPlayers || 42;
+            state.erlcData.currentPlayers = data.CurrentPlayers; // Fallback if players endpoint fails
         }
+
+        // Process Players
+        if (playersRes.status === 'fulfilled' && playersRes.value) {
+            state.erlcData.players = playersRes.value; // Array of players
+            state.erlcData.currentPlayers = playersRes.value.length;
+        }
+
+        // Process Queue
+        if (queueRes.status === 'fulfilled' && queueRes.value) {
+            state.erlcData.queue = queueRes.value; // Array of queue
+        }
+
+        // Process Vehicles
+        if (vehiclesRes.status === 'fulfilled' && vehiclesRes.value) {
+            state.erlcData.vehicles = vehiclesRes.value;
+        } else {
+            state.erlcData.vehicles = [];
+        }
+
+        // Process ModCalls (Privileged)
+        if (modRes.status === 'fulfilled' && modRes.value) {
+            state.erlcData.modCalls = modRes.value;
+        } else {
+            state.erlcData.modCalls = [];
+        }
+
+        // Process Bans (Privileged)
+        if (bansRes.status === 'fulfilled' && bansRes.value) {
+            state.erlcData.bans = bansRes.value;
+        } else {
+             state.erlcData.bans = [];
+        }
+        
+        // Process Kill Logs (Privileged - not displayed yet but stored)
+        if (killRes.status === 'fulfilled' && killRes.value) {
+             state.erlcData.killLogs = killRes.value;
+        }
+
     } catch (e) {
-        console.warn("ERLC API Fetch Failed", e);
+        console.warn("ERLC Global Fetch Error", e);
     }
 };
 

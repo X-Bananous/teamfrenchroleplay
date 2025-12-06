@@ -1,13 +1,4 @@
 
-
-
-
-
-
-
-
-
-
 import { state } from '../state.js';
 import { CONFIG } from '../config.js';
 import { hasPermission } from '../utils.js';
@@ -425,10 +416,10 @@ export const StaffView = () => {
                             state.erlcData.modCalls.map(c => `
                                 <div class="bg-white/5 p-3 rounded-xl border border-white/5">
                                     <div class="flex justify-between items-center mb-1">
-                                        <span class="font-bold text-white text-sm">${c.caller}</span>
-                                        <span class="text-xs text-gray-500">${new Date(c.timestamp).toLocaleTimeString()}</span>
+                                        <span class="font-bold text-white text-sm">${c.Caller || c.caller || 'Inconnu'}</span>
+                                        <span class="text-xs text-gray-500">${c.Timestamp ? new Date(c.Timestamp * 1000).toLocaleTimeString() : 'Maintenant'}</span>
                                     </div>
-                                    <p class="text-gray-300 text-sm">${c.reason}</p>
+                                    <p class="text-gray-300 text-sm">${c.Reason || c.reason || 'Aucune raison'}</p>
                                 </div>
                             `).join('') 
                         : '<div class="text-center text-gray-500 italic py-4">Aucun appel actif.</div>'}
@@ -447,8 +438,8 @@ export const StaffView = () => {
                                 <div class="bg-white/5 p-3 rounded-xl border border-white/5 flex items-center gap-3">
                                     <div class="w-8 h-8 rounded bg-red-500/20 flex items-center justify-center text-red-400 font-bold text-xs">BAN</div>
                                     <div>
-                                        <div class="font-bold text-white text-sm">${b.username}</div>
-                                        <div class="text-xs text-gray-500">Raison: ${b.reason}</div>
+                                        <div class="font-bold text-white text-sm">${b.User || b.user || b.Username || 'Inconnu'}</div>
+                                        <div class="text-xs text-gray-500">Raison: ${b.Reason || b.reason}</div>
                                     </div>
                                 </div>
                             `).join('') 
