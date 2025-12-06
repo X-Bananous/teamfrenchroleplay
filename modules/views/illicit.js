@@ -11,7 +11,14 @@ export const BLACK_MARKET_CATALOG = {
         { name: "Revolver", price: 3000, icon: "circle-dot" },
         { name: "Colt M1911", price: 3500, icon: "target" },
         { name: "Colt Python", price: 4200, icon: "circle-dot" },
-        { name: "Desert Eagle", price: 4500, icon: "triangle" }
+        { name: "Desert Eagle", price: 4500, icon: "triangle" },
+        // Nouveaux Items (Outils)
+        { name: "Lampe Torche", price: 20, icon: "flashlight" },
+        { name: "Marteau", price: 20, icon: "hammer" },
+        { name: "Lockpick", price: 50, icon: "key" },
+        { name: "Sac", price: 100, icon: "shopping-bag" },
+        { name: "Coupe Verre", price: 350, icon: "scissors" },
+        { name: "Puce ATM", price: 2300, icon: "cpu" }
     ],
     medium: [
         { name: "TEC 9", price: 9500, icon: "zap" },
@@ -326,7 +333,7 @@ export const IllicitView = () => {
     // 4. MARCHÉ NOIR (DEFAULT CATALOG UI)
     // On doit ajouter un sous-menu ou tout afficher ? Utilisons le design précédent mais avec un bouton retour
     const catTabs = [
-        { id: 'light', label: 'Légères', icon: 'target' },
+        { id: 'light', label: 'Légères / Outils', icon: 'target' },
         { id: 'medium', label: 'Moyennes', icon: 'zap' },
         { id: 'heavy', label: 'Lourdes', icon: 'flame' },
         { id: 'sniper', label: 'Snipers', icon: 'crosshair' }

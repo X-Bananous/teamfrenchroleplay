@@ -367,8 +367,24 @@ window.actions = {
     },
     leaveLobby: async () => {
         if(!state.activeHeistLobby) return;
-        // Delete membership
-        await state.supabase.from('heist_members').delete().eq('lobby_id', state.activeHeistLobby.id).eq('character_id', state.activeCharacter.id);
+
+        // Check if Host
+        if (state.activeHeistLobby.host_id === state.activeCharacter.id) {
+            // DELETE THE WHOLE LOBBY TO PREVENT ZOMBIE STATE
+            await state.supabase.from('heist_lobbies').delete().eq('id', state.activeHeistLobby.id);
+            ui.showToast('Équipe dissoute par le chef.', 'info');
+        } else {
+            // Just leave as member
+            await state.supabase.from('heist_members').delete()
+                .eq('lobby_id', state.activeHeistLobby.id)
+                .eq('character_id', state.activeCharacter.id);
+            ui.showToast('Vous avez quitté l\'équipe.', 'info');
+        }
+
+        // Clean state immediately
+        state.activeHeistLobby = null;
+        state.heistMembers = [];
+        
         await fetchActiveHeistLobby(state.activeCharacter.id);
         state.activeIllicitTab = 'heists';
         render();
