@@ -6,6 +6,8 @@
 
 
 
+
+
 import { state } from '../state.js';
 import { CONFIG } from '../config.js';
 import { hasPermission } from '../utils.js';
@@ -49,6 +51,9 @@ export const StaffView = () => {
                     Permissions
                 </button>
             ` : ''}
+             <button onclick="actions.setStaffTab('erlc')" class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${state.activeStaffTab === 'erlc' ? 'bg-white/10 text-white border-b-2 border-blue-300' : 'text-gray-400 hover:text-white'}">
+                ERLC (API)
+            </button>
         </div>
     `;
 
@@ -405,6 +410,53 @@ export const StaffView = () => {
                 </div>
             </div>
         `;
+    } else if (state.activeStaffTab === 'erlc') {
+         // ERLC MANAGEMENT TAB
+         content = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- MOD CALLS -->
+                <div class="glass-panel p-6 rounded-2xl">
+                    <h3 class="font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="radio" class="w-5 h-5 text-blue-400"></i>
+                        Appels Modération (In-Game)
+                    </h3>
+                    <div class="space-y-3">
+                        ${state.erlcData.modCalls && state.erlcData.modCalls.length > 0 ? 
+                            state.erlcData.modCalls.map(c => `
+                                <div class="bg-white/5 p-3 rounded-xl border border-white/5">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="font-bold text-white text-sm">${c.caller}</span>
+                                        <span class="text-xs text-gray-500">${new Date(c.timestamp).toLocaleTimeString()}</span>
+                                    </div>
+                                    <p class="text-gray-300 text-sm">${c.reason}</p>
+                                </div>
+                            `).join('') 
+                        : '<div class="text-center text-gray-500 italic py-4">Aucun appel actif.</div>'}
+                    </div>
+                </div>
+
+                <!-- BANS -->
+                <div class="glass-panel p-6 rounded-2xl">
+                    <h3 class="font-bold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="gavel" class="w-5 h-5 text-red-400"></i>
+                        Bannissements Récents
+                    </h3>
+                     <div class="space-y-3">
+                        ${state.erlcData.bans && state.erlcData.bans.length > 0 ? 
+                            state.erlcData.bans.map(b => `
+                                <div class="bg-white/5 p-3 rounded-xl border border-white/5 flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded bg-red-500/20 flex items-center justify-center text-red-400 font-bold text-xs">BAN</div>
+                                    <div>
+                                        <div class="font-bold text-white text-sm">${b.username}</div>
+                                        <div class="text-xs text-gray-500">Raison: ${b.reason}</div>
+                                    </div>
+                                </div>
+                            `).join('') 
+                        : '<div class="text-center text-gray-500 italic py-4">Aucun ban récent.</div>'}
+                    </div>
+                </div>
+            </div>
+         `;
     }
 
     return `
@@ -417,7 +469,7 @@ export const StaffView = () => {
                     <h2 class="text-2xl font-bold text-white">Administration</h2>
                 </div>
                 ${hasPermission('can_go_onduty') ? `
-                    <button onclick="actions.toggleDuty()" class="glass-btn-secondary px-4 py-2 rounded-xl flex items-center gap-2 font-bold transition-all ${isOnDuty ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30' : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'}">
+                    <button onclick="actions.confirmToggleDuty(${isOnDuty})" class="glass-btn-secondary px-4 py-2 rounded-xl flex items-center gap-2 font-bold transition-all ${isOnDuty ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30' : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'}">
                         <span class="relative flex h-3 w-3">
                           <span class="animate-ping absolute inline-flex h-full w-full rounded-full ${isOnDuty ? 'bg-red-400' : 'bg-emerald-400'} opacity-75"></span>
                           <span class="relative inline-flex rounded-full h-3 w-3 ${isOnDuty ? 'bg-red-500' : 'bg-emerald-500'}"></span>

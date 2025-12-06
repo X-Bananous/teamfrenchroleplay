@@ -4,11 +4,14 @@
 
 
 
+
+
 import { state } from '../state.js';
 import { BankView } from './bank.js';
 import { StaffView } from './staff.js';
 import { AssetsView } from './assets.js';
 import { IllicitView } from './illicit.js';
+import { ServicesView } from './services.js';
 import { hasPermission } from '../utils.js';
 import { ui } from '../ui.js';
 import { HEIST_DATA } from './illicit.js';
@@ -135,7 +138,7 @@ export const HubView = () => {
                         </div>
                         <div class="relative z-10">
                             <h3 class="text-xl font-bold text-white">Services Publics</h3>
-                            <p class="text-sm text-gray-400 mt-1">Police, Sheriff, Fire & DOT</p>
+                            <p class="text-sm text-gray-400 mt-1">Annuaire, Dispatch & Appels 911</p>
                         </div>
                     </button>
                 ` : `
@@ -175,6 +178,8 @@ export const HubView = () => {
         content = IllicitView();
     } else if (state.activeHubPanel === 'staff') {
         content = StaffView();
+    } else if (state.activeHubPanel === 'services') {
+        content = ServicesView();
     } else {
             content = `
             <div class="flex flex-col items-center justify-center h-[50vh] text-center animate-fade-in">
@@ -204,7 +209,7 @@ export const HubView = () => {
     const isIllegal = state.activeCharacter?.alignment === 'illegal';
     
     // ERLC Data
-    const { currentPlayers, maxPlayers, queue } = state.erlcData;
+    const { currentPlayers, maxPlayers, queue, joinKey } = state.erlcData;
     const queueLength = queue ? queue.length : 0;
     const staffOnDuty = state.onDutyStaff || [];
 
@@ -242,9 +247,12 @@ export const HubView = () => {
                     
                     <!-- ERLC SERVER STATUS WIDGET -->
                     <div class="mt-6 mx-2 p-3 bg-white/5 rounded-xl border border-white/5">
-                         <div class="flex items-center gap-2 mb-2">
-                            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                            <span class="text-xs font-bold text-gray-300">Serveur ERLC</span>
+                         <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                <span class="text-xs font-bold text-gray-300">Serveur ERLC</span>
+                            </div>
+                            <span class="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-gray-400 tracking-wider">CODE: ${joinKey}</span>
                          </div>
                          <div class="flex justify-between text-sm mb-1">
                             <span class="text-gray-400">Joueurs</span>
@@ -286,6 +294,7 @@ export const HubView = () => {
                           state.activeHubPanel === 'bank' ? 'Banque Nationale' : 
                           state.activeHubPanel === 'assets' ? 'Gestion de Patrimoine' :
                           state.activeHubPanel === 'illicit' ? 'Dark Web' :
+                          state.activeHubPanel === 'services' ? 'Services Publics' :
                           state.activeHubPanel}
                     </h1>
                     <div class="flex items-center gap-4">

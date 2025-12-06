@@ -1,6 +1,8 @@
 
 
 
+
+
 export const state = {
     user: null, // Données Discord + Permissions
     accessToken: null,
@@ -31,8 +33,13 @@ export const state = {
         players: [],
         queue: [],
         maxPlayers: 42,
-        currentPlayers: 0
+        currentPlayers: 0,
+        joinKey: '?????',
+        bans: [], // API ERLC Bans
+        modCalls: [], // API ERLC Mod Calls
+        vehicles: [] // API ERLC Vehicles
     },
+    emergencyCalls: [], // 911 Calls
     
     // Search States for Staff Panel
     staffSearchQuery: '', 
@@ -78,13 +85,17 @@ export const state = {
     blackMarketSearch: '', // Search filter for black market
     drugLab: null, // Data from 'drug_labs' table
     
+    // Services Publics Data
+    activeServicesTab: 'directory', // directory, dispatch, map
+    filteredStreets: [], // Search results for 911 location
+    
     // Global News / Events
     globalActiveHeists: [], // Active major heists for the hub news bubble
     
     // UI State
     currentView: 'login', // login, select, create, hub, access_denied
     activeHubPanel: 'main', // main, bank, services, illicit, staff, assets
-    activeStaffTab: 'applications', // applications, database, permissions, economy, illegal
+    activeStaffTab: 'applications', // applications, database, permissions, economy, illegal, erlc
     isLoggingIn: false, // UI state for popup login
     alignmentModalShown: false, // Legacy character fix
     

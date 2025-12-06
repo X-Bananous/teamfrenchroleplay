@@ -1,4 +1,5 @@
 
+
 export const CONFIG = {
     SUPABASE_URL: 'https://nitlrwmgoddqabasavrg.supabase.co',
     SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pdGxyd21nb2RkcWFiYXNhdnJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3Mzg3NTIsImV4cCI6MjA3OTMxNDc1Mn0.Y5BFeTuv-dxLpf9ocqyhaWMLLCwlKf-bPDgpWq0o8oU',
@@ -21,5 +22,14 @@ export const CONFIG = {
     ADMIN_IDS: [
         '814950374283804762', // Admin 1
         '1121157707341254656' // Admin 2
+    ],
+
+    // ERLC Map Street Names
+    STREET_NAMES: [
+        "Main Avenue", "Broadway Avenue", "Kalamazoo Street", "Liberty Lane", 
+        "River Road", "Forest Road", "High Rock Road", "Farm Lane", 
+        "Dirt Road", "Residential Avenue", "Commerce Street", "Industrial Blvd",
+        "Police Station Road", "Hospital Drive", "Fire Station Lane",
+        "Bank Street", "Jewelry Lane", "Suburban Drive", "Lakeside Drive"
     ]
 };

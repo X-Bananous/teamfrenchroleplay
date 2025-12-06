@@ -8,6 +8,8 @@
 
 
 
+
+
 /**
  * TFRP Core Logic
  * Modularized Structure
@@ -40,7 +42,9 @@ import {
     fetchGlobalHeists,
     fetchERLCData,
     fetchOnDutyStaff,
-    toggleStaffDuty
+    toggleStaffDuty,
+    fetchEmergencyCalls,
+    createEmergencyCall
 } from './modules/services.js';
 import { HEIST_DATA, DRUG_DATA } from './modules/views/illicit.js';
 import { generateInventoryRow } from './modules/views/assets.js';
@@ -50,6 +54,7 @@ import { LoginView, AccessDeniedView } from './modules/views/login.js';
 import { CharacterSelectView } from './modules/views/select.js';
 import { CharacterCreateView } from './modules/views/create.js';
 import { HubView } from './modules/views/hub.js';
+import { ServicesView } from './modules/views/services.js'; // Imported for reference, Hub renders it
 
 // --- Global Actions (Attached to Window) ---
 window.actions = {
@@ -215,6 +220,13 @@ window.actions = {
             // Fetch status for menu summary
             await fetchActiveHeistLobby(state.activeCharacter.id);
             await fetchDrugLab(state.activeCharacter.id);
+        } else if (panel === 'services' && state.activeCharacter) {
+            // New Panel Services Publics
+            state.activeServicesTab = 'directory';
+            await fetchAllCharacters(); // for Directory
+            await fetchGlobalHeists(); // for Dispatch
+            await fetchEmergencyCalls(); // for 911
+            await fetchERLCData(); // for Vehicles
         } else if (panel === 'staff') {
             state.staffSearchQuery = ''; 
             
@@ -240,7 +252,27 @@ window.actions = {
             }
             
             await Promise.all(promises);
+            await fetchERLCData(); // Also for staff tab ERLC
         }
+        render();
+    },
+    
+    // SERVICES PUBLIC ACTIONS
+    setServicesTab: async (tab) => {
+        state.activeServicesTab = tab;
+        if(tab === 'dispatch') {
+             await fetchGlobalHeists();
+             await fetchEmergencyCalls();
+        } else if (tab === 'map') {
+            await fetchERLCData();
+        }
+        render();
+    },
+    
+    createEmergencyCall: async (e) => {
+        e.preventDefault();
+        const data = new FormData(e.target);
+        await createEmergencyCall(data.get('service'), data.get('location'), data.get('description'));
         render();
     },
 
@@ -585,6 +617,9 @@ window.actions = {
         if (tab === 'illegal') {
             await fetchPendingHeistReviews();
         }
+        if (tab === 'erlc') {
+            await fetchERLCData();
+        }
 
         render();
     },
@@ -603,9 +638,16 @@ window.actions = {
         }, 0);
     },
 
-    toggleDuty: async () => {
-        await toggleStaffDuty();
-        render();
+    confirmToggleDuty: (currentStatus) => {
+        ui.showModal({
+            title: currentStatus ? "Fin de Service" : "Prise de Service",
+            content: currentStatus ? "Vous quittez votre service staff. Vous ne serez plus affiché comme disponible." : "Vous entrez en service. Vous serez visible par les joueurs.",
+            confirmText: "Confirmer",
+            onConfirm: async () => {
+                await toggleStaffDuty();
+                render();
+            }
+        });
     },
 
     decideApplication: async (id, status) => {
@@ -1048,6 +1090,7 @@ const startPolling = () => {
         await fetchERLCData();
         await fetchGlobalHeists();
         if (state.activeHubPanel === 'main') await fetchOnDutyStaff();
+        if (state.activeHubPanel === 'services' && state.activeServicesTab === 'dispatch') await fetchEmergencyCalls();
         if (state.activeHubPanel === 'main') render(); // Soft refresh main panel
     }, 30000);
 };
