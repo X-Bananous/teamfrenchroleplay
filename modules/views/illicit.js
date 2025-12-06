@@ -1,9 +1,5 @@
 
 
-
-
-
-
 import { state } from '../state.js';
 import { createHeistLobby, startHeistSync } from '../services.js';
 import { showToast, showModal } from '../ui.js';
@@ -78,7 +74,7 @@ export const IllicitView = () => {
              summaryHtml += `
                 <div class="glass-panel p-4 mb-4 rounded-xl border border-orange-500/30 flex items-center justify-between">
                     <div class="flex items-center gap-3">
-                        <div class="p-2 bg-orange-500/20 rounded text-orange-400 animate-pulse"><i data-lucide="timer" class="w-5 h-5"></i></div>
+                        <div class="p-2 bg-orange-500/20 rounded text-orange-400"><i data-lucide="timer" class="w-5 h-5"></i></div>
                         <div>
                             <div class="text-xs font-bold text-orange-400 uppercase">Braquage en cours</div>
                             <div class="text-white font-bold">${hData ? hData.name : 'Opération'}</div>
@@ -243,7 +239,7 @@ export const IllicitView = () => {
                          </h3>
                          
                          ${!isFinished ? `
-                             <div id="drug-timer-display" class="text-4xl font-mono font-bold text-white mb-2 animate-pulse">
+                             <div id="drug-timer-display" class="text-4xl font-mono font-bold text-white mb-2">
                                 ${Math.floor(remaining / 60)}:${(remaining % 60).toString().padStart(2, '0')}
                              </div>
                              <p class="text-xs text-gray-400">Ne quittez pas le panel pour assurer la synchro.</p>
@@ -390,7 +386,7 @@ export const IllicitView = () => {
                             <div class="relative z-10 mb-6 border-b border-white/10 pb-6 flex justify-between items-start">
                                 <div>
                                     <h2 class="text-2xl font-bold text-white flex items-center gap-3">
-                                        <span class="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></span>
+                                        <span class="w-3 h-3 bg-orange-500 rounded-full"></span>
                                         Lobby: ${heistInfo.name}
                                     </h2>
                                     <p class="text-gray-400 text-sm mt-1">Chef d'opération: ${amHost ? 'Vous' : 'Inconnu'}</p>
@@ -432,7 +428,7 @@ export const IllicitView = () => {
                 
                 // If finished and just waiting for check/finish
                 if (remaining <= 0) {
-                     return `<div class="animate-fade-in flex items-center justify-center h-full"><div class="glass-panel p-8 text-center max-w-md w-full"><div class="w-20 h-20 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center mb-6 animate-bounce"><i data-lucide="check" class="w-10 h-10"></i></div><h2 class="text-2xl font-bold text-white mb-2">Opération Terminée</h2><p class="text-gray-400 mb-6">L'équipe est de retour au QG.</p>${amHost ? `<button onclick="actions.finishHeist()" class="glass-btn w-full py-3 rounded-xl font-bold">Voir le résultat et Partager</button>` : `<p class="text-sm text-gray-500 italic">En attente du chef pour le partage...</p>`}</div></div>`;
+                     return `<div class="animate-fade-in flex items-center justify-center h-full"><div class="glass-panel p-8 text-center max-w-md w-full"><div class="w-20 h-20 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center mb-6"><i data-lucide="check" class="w-10 h-10"></i></div><h2 class="text-2xl font-bold text-white mb-2">Opération Terminée</h2><p class="text-gray-400 mb-6">L'équipe est de retour au QG.</p>${amHost ? `<button onclick="actions.finishHeist()" class="glass-btn w-full py-3 rounded-xl font-bold">Voir le résultat et Partager</button>` : `<p class="text-sm text-gray-500 italic">En attente du chef pour le partage...</p>`}</div></div>`;
                 }
                 
                 // Add specific ID "heist-timer-display" for partial updates without re-render

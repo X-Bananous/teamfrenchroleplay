@@ -4,6 +4,8 @@
 
 
 
+
+
 /**
  * TFRP Core Logic
  * Modularized Structure
@@ -1148,14 +1150,22 @@ const handleDiscordCallback = async (token, type) => {
         }
 
         let isFounder = CONFIG.ADMIN_IDS.includes(discordUser.id);
-        await state.supabase.from('profiles').upsert({
+        
+        // Attempt to Upsert User Profile
+        // Note: Requires RLS policies to be Open/Allow All for this architecture
+        const { error: upsertError } = await state.supabase.from('profiles').upsert({
             id: discordUser.id,
             username: discordUser.username,
             avatar_url: `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`,
             updated_at: new Date(),
         });
+
+        if (upsertError) {
+            console.error("DB Error:", upsertError);
+            // We don't block here, we try to proceed, maybe it's just a permissions glitch
+        }
         
-        const { data: profile } = await state.supabase.from('profiles').select('permissions').eq('id', discordUser.id).single();
+        const { data: profile } = await state.supabase.from('profiles').select('permissions').eq('id', discordUser.id).maybeSingle();
 
         state.user = {
             id: discordUser.id,
@@ -1170,6 +1180,15 @@ const handleDiscordCallback = async (token, type) => {
 
     } catch (e) {
         console.error("Auth Error:", e);
+        ui.showModal({
+            title: "Erreur de Connexion",
+            content: "Impossible de communiquer avec le serveur. Vérifiez les permissions de la base de données.",
+            confirmText: "Réessayer",
+            onConfirm: () => {
+                localStorage.clear();
+                window.location.reload();
+            }
+        });
         actions.logout();
     }
     
