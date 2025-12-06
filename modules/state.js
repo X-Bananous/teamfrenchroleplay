@@ -54,6 +54,8 @@ export const state = {
     activeHeistLobby: null, // SYNC: Data from 'heist_lobbies' table
     heistMembers: [], // SYNC: Data from 'heist_members'
     availableHeistLobbies: [], // For joining
+    blackMarketSearch: '', // Search filter for black market
+    drugLab: null, // Data from 'drug_labs' table
     
     // UI State
     currentView: 'login', // login, select, create, hub, access_denied

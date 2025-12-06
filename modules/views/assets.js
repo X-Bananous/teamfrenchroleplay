@@ -2,6 +2,40 @@
 
 import { state } from '../state.js';
 
+// Helper to generate a single row HTML - ensures consistency between Main View and Search Results
+export const generateInventoryRow = (item) => `
+    <div class="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:bg-white/10 transition-colors group">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl ${item.is_cash ? 'bg-emerald-500/20 text-emerald-400' : item.is_virtual ? 'bg-blue-500/20 text-blue-400' : 'bg-indigo-500/20 text-indigo-400'} flex items-center justify-center border border-white/5">
+                <i data-lucide="${item.is_cash ? 'banknote' : item.is_virtual ? 'id-card' : 'package'}" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <div class="font-bold text-white text-base">${item.name}</div>
+                <div class="text-xs text-gray-500 font-mono">
+                    Qté: <span class="text-gray-300">${item.quantity.toLocaleString()}</span> ${!item.is_virtual ? `&times; $${item.estimated_value.toLocaleString()}` : ''}
+                </div>
+            </div>
+        </div>
+        <div class="text-right flex items-center gap-4">
+            ${!item.is_virtual ? `
+                <div>
+                    <div class="font-bold text-white">$ ${(item.quantity * item.estimated_value).toLocaleString()}</div>
+                    <div class="text-[10px] text-gray-500 uppercase tracking-wider">Valeur</div>
+                </div>
+                ${!item.is_cash ? `
+                    <button onclick="actions.deleteInventoryItem('${item.id}', '${item.name}')" class="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors" title="Jeter">
+                        <i data-lucide="trash" class="w-4 h-4"></i>
+                    </button>
+                ` : ''}
+            ` : `
+                <button onclick="actions.openIdCard()" class="glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-500/20 hover:text-blue-300 transition-colors">
+                    Consulter
+                </button>
+            `}
+        </div>
+    </div>
+`;
+
 export const AssetsView = () => {
     if (!state.bankAccount) return '<div class="p-8 text-center text-gray-500"><div class="loader-spinner mb-4 mx-auto"></div>Synchronisation du patrimoine...</div>';
 
@@ -91,33 +125,7 @@ export const AssetsView = () => {
     }
 
     const inventoryHtml = combinedInventory.length > 0 
-        ? combinedInventory.map(item => `
-            <div class="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:bg-white/10 transition-colors group">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl ${item.is_cash ? 'bg-emerald-500/20 text-emerald-400' : item.is_virtual ? 'bg-blue-500/20 text-blue-400' : 'bg-indigo-500/20 text-indigo-400'} flex items-center justify-center border border-white/5">
-                        <i data-lucide="${item.is_cash ? 'banknote' : item.is_virtual ? 'id-card' : 'package'}" class="w-6 h-6"></i>
-                    </div>
-                    <div>
-                        <div class="font-bold text-white text-base">${item.name}</div>
-                        <div class="text-xs text-gray-500 font-mono">
-                            Qté: <span class="text-gray-300">${item.quantity.toLocaleString()}</span> ${!item.is_virtual ? `&times; $${item.estimated_value.toLocaleString()}` : ''}
-                        </div>
-                    </div>
-                </div>
-                <div class="text-right flex items-center gap-4">
-                    ${!item.is_virtual ? `
-                        <div>
-                            <div class="font-bold text-white">$ ${(item.quantity * item.estimated_value).toLocaleString()}</div>
-                            <div class="text-[10px] text-gray-500 uppercase tracking-wider">Valeur</div>
-                        </div>
-                    ` : `
-                        <button onclick="actions.openIdCard()" class="glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-500/20 hover:text-blue-300 transition-colors">
-                            Consulter
-                        </button>
-                    `}
-                </div>
-            </div>
-        `).join('')
+        ? combinedInventory.map(generateInventoryRow).join('')
         : `<div class="text-center text-gray-500 py-10 italic">Aucun objet trouvé.</div>`;
 
     return `

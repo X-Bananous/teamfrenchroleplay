@@ -44,8 +44,15 @@ export const HubView = () => {
     }
 
     let content = '';
+    const isBypass = state.activeCharacter?.id === 'STAFF_BYPASS';
     
     if (state.activeHubPanel === 'main') {
+        // En mode Bypass, on redirige directement vers le panel Staff si on tente d'afficher le main
+        if(isBypass) {
+             setTimeout(() => actions.setHubPanel('staff'), 0);
+             return ''; 
+        }
+
         const showStaffCard = Object.keys(state.user.permissions || {}).length > 0 || state.user.isFounder;
         const isIllegal = state.activeCharacter?.alignment === 'illegal';
 
@@ -167,16 +174,19 @@ export const HubView = () => {
                 </div>
                 
                 <div class="p-4 space-y-2 flex-1 overflow-y-auto custom-scrollbar">
-                    <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 mb-2">Menu Principal</div>
-                    ${navItem('main', 'layout-grid', 'Tableau de bord', 'text-blue-400')}
-                    ${navItem('bank', 'landmark', 'Ma Banque', 'text-emerald-400')}
-                    ${navItem('assets', 'gem', 'Patrimoine', 'text-indigo-400')}
-                    
-                    ${!isIllegal ? navItem('services', 'siren', 'Services Publics', 'text-blue-400') : ''}
-                    ${isIllegal ? navItem('illicit', 'skull', 'Illégal', 'text-red-400') : ''}
-                    
+                    ${!isBypass ? `
+                        <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 mb-2">Menu Principal</div>
+                        ${navItem('main', 'layout-grid', 'Tableau de bord', 'text-blue-400')}
+                        ${navItem('bank', 'landmark', 'Ma Banque', 'text-emerald-400')}
+                        ${navItem('assets', 'gem', 'Patrimoine', 'text-indigo-400')}
+                        
+                        ${!isIllegal ? navItem('services', 'siren', 'Services Publics', 'text-blue-400') : ''}
+                        ${isIllegal ? navItem('illicit', 'skull', 'Illégal', 'text-red-400') : ''}
+                        
+                        ${hasStaffAccess ? `<div class="my-4 border-t border-white/5"></div>` : ''}
+                    ` : ''}
+
                     ${hasStaffAccess ? `
-                        <div class="my-4 border-t border-white/5"></div>
                         <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 mb-2">Staff</div>
                         ${navItem('staff', 'shield-alert', 'Administration', 'text-purple-400')}
                     ` : ''}

@@ -8,7 +8,6 @@
 import { CONFIG } from './modules/config.js';
 import { state } from './modules/state.js';
 import { router, render, hasPermission } from './modules/utils.js';
-// L'import ci-dessous fonctionnera maintenant grâce à l'export nommé dans ui.js
 import { ui } from './modules/ui.js'; 
 import { 
     loadCharacters, 
@@ -24,9 +23,12 @@ import {
     inviteToLobby,
     joinLobbyRequest,
     acceptLobbyMember,
-    startHeistSync
+    startHeistSync,
+    fetchDrugLab,
+    updateDrugLab
 } from './modules/services.js';
-import { HEIST_DATA } from './modules/views/illicit.js';
+import { HEIST_DATA, DRUG_DATA } from './modules/views/illicit.js';
+import { generateInventoryRow } from './modules/views/assets.js';
 
 // Views
 import { LoginView, AccessDeniedView } from './modules/views/login.js';
@@ -58,7 +60,7 @@ window.actions = {
             status: 'accepted',
             alignment: 'legal'
         };
-        state.activeHubPanel = 'staff';
+        state.activeHubPanel = 'staff'; // On force direct staff
         router('hub');
     },
     
@@ -189,6 +191,7 @@ window.actions = {
         } else if (panel === 'illicit' && state.activeCharacter) {
             ui.showToast('Connexion réseau crypté...', 'warning');
             state.activeIllicitTab = 'menu'; // Reset to menu
+            state.blackMarketSearch = ''; // Reset filter
             await fetchBankData(state.activeCharacter.id);
         } else if (panel === 'staff') {
             state.staffSearchQuery = ''; 
@@ -210,33 +213,38 @@ window.actions = {
     // Inventory / Assets Actions
     handleInventorySearch: (query) => {
         state.inventoryFilter = query;
-        // Targeted DOM update instead of render()
         const container = document.getElementById('inventory-list-container');
         if(container) {
-            // Re-fetch combined inventory locally to filter
             let items = [...state.inventory];
-            if(state.bankAccount.cash_balance > 0) items.push({name: 'Espèces', quantity: state.bankAccount.cash_balance, is_cash:true, estimated_value:1});
+            if(state.bankAccount.cash_balance > 0) items.push({
+                id: 'cash', name: 'Espèces', quantity: state.bankAccount.cash_balance, is_cash:true, estimated_value:1
+            });
             
             const lower = query.toLowerCase();
             const filtered = items.filter(i => i.name.toLowerCase().includes(lower));
             
-            // Generate HTML (Duped from View logic, ideally refactor into View Helper)
-            container.innerHTML = filtered.length > 0 ? filtered.map(item => `
-                <div class="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
-                   <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-xl ${item.is_cash ? 'bg-emerald-500/20 text-emerald-400' : 'bg-indigo-500/20 text-indigo-400'} flex items-center justify-center border border-white/5">
-                            <i data-lucide="${item.is_cash ? 'banknote' : 'package'}" class="w-6 h-6"></i>
-                        </div>
-                        <div>
-                            <div class="font-bold text-white text-base">${item.name}</div>
-                            <div class="text-xs text-gray-500 font-mono">Qté: ${item.quantity}</div>
-                        </div>
-                    </div>
-                </div>
-            `).join('') : '<div class="text-center text-gray-500 py-10">Rien trouvé.</div>';
+            // USE SHARED RENDER HELPER TO AVOID BUGS
+            container.innerHTML = filtered.length > 0 
+                ? filtered.map(generateInventoryRow).join('') 
+                : '<div class="text-center text-gray-500 py-10">Rien trouvé.</div>';
             
             if(window.lucide) lucide.createIcons();
         }
+    },
+    
+    deleteInventoryItem: async (itemId, itemName) => {
+         ui.showModal({
+            title: "Jeter Objet",
+            content: `Voulez-vous vraiment jeter <b>${itemName}</b> ? Cette action est définitive.`,
+            confirmText: "Jeter à la poubelle",
+            type: "danger",
+            onConfirm: async () => {
+                await state.supabase.from('inventory').delete().eq('id', itemId);
+                ui.showToast("Objet jeté.", 'info');
+                await fetchInventory(state.activeCharacter.id);
+                render(); // Re-render to update list and total value
+            }
+        });
     },
     
     // ID CARD ACTIONS
@@ -254,8 +262,23 @@ window.actions = {
         state.activeIllicitTab = tab;
         if (tab === 'heists') {
              await fetchActiveHeistLobby(state.activeCharacter.id);
+        } else if (tab === 'drugs') {
+             await fetchDrugLab(state.activeCharacter.id);
         }
         render();
+    },
+    
+    searchBlackMarket: (query) => {
+        state.blackMarketSearch = query;
+        render();
+        // Restore focus hack
+        setTimeout(() => {
+            const input = document.querySelector('input[placeholder*="Rechercher arme"]');
+            if(input) {
+                input.focus();
+                input.setSelectionRange(input.value.length, input.value.length);
+            }
+        }, 0);
     },
 
     buyIllegalItem: async (itemName, price) => {
@@ -291,6 +314,122 @@ window.actions = {
                 render();
             }
         });
+    },
+    
+    // --- DRUG SYSTEM ACTIONS ---
+    buyLabComponent: async (type, price) => {
+        const charId = state.activeCharacter.id;
+        const { data: bank } = await state.supabase.from('bank_accounts').select('cash_balance').eq('character_id', charId).single();
+         if (!bank || bank.cash_balance < price) {
+            ui.showToast("Pas assez de liquide.", 'error');
+            return;
+        }
+
+        ui.showModal({
+            title: "Investissement",
+            content: `Acheter cet élément pour <b>$${price}</b> ?`,
+            confirmText: "Payer",
+            onConfirm: async () => {
+                await state.supabase.from('bank_accounts').update({ cash_balance: bank.cash_balance - price }).eq('character_id', charId);
+                
+                const updates = {};
+                if(type === 'building') updates.has_building = true;
+                if(type === 'equipment') updates.has_equipment = true;
+                
+                await updateDrugLab(updates);
+                ui.showToast("Installation acquise.", 'success');
+                await fetchBankData(charId); // refresh cash
+                render();
+            }
+        });
+    },
+
+    startDrugAction: async (stage, e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const type = formData.get('drug_type');
+        const amount = parseInt(formData.get('amount'));
+        const lab = state.drugLab;
+
+        // Validation Rules
+        if (stage === 'harvest') {
+            // Weekly Check
+            const lastProd = lab.last_production_date ? new Date(lab.last_production_date) : null;
+            if (lastProd) {
+                const diffTime = Math.abs(new Date() - lastProd);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                if (diffDays < 7) {
+                    ui.showToast("Limite atteinte (1x / Semaine).", 'error');
+                    return;
+                }
+            }
+        } else if (stage === 'process') {
+            const stockKey = type === 'coke' ? 'stock_coke_raw' : 'stock_weed_raw';
+            if ((lab[stockKey] || 0) < amount) {
+                ui.showToast("Stock insuffisant.", 'error');
+                return;
+            }
+        } else if (stage === 'sell') {
+            const stockKey = type === 'coke' ? 'stock_coke_pure' : 'stock_weed_pure';
+             if ((lab[stockKey] || 0) < amount) {
+                ui.showToast("Stock insuffisant.", 'error');
+                return;
+            }
+        }
+
+        // Calculate Time
+        const durationMinutes = DRUG_DATA[type][stage][amount];
+        const endTime = Date.now() + (durationMinutes * 60 * 1000);
+
+        // Update DB
+        const updates = {
+            current_batch: { type, stage, amount, end_time: endTime }
+        };
+        
+        // Remove stock immediately when starting process/sell to prevent dupes
+        if (stage === 'process') {
+            const stockKey = type === 'coke' ? 'stock_coke_raw' : 'stock_weed_raw';
+            updates[stockKey] = lab[stockKey] - amount;
+        } else if (stage === 'sell') {
+            const stockKey = type === 'coke' ? 'stock_coke_pure' : 'stock_weed_pure';
+            updates[stockKey] = lab[stockKey] - amount;
+        } else if (stage === 'harvest') {
+            updates.last_production_date = new Date().toISOString();
+        }
+
+        await updateDrugLab(updates);
+        ui.showToast("Opération lancée.", 'success');
+        render();
+    },
+
+    collectProduction: async () => {
+        const lab = state.drugLab;
+        if (!lab.current_batch) return;
+        
+        const { type, stage, amount } = lab.current_batch;
+        const updates = { current_batch: null };
+        let toastMsg = "";
+
+        if (stage === 'harvest') {
+            const stockKey = type === 'coke' ? 'stock_coke_raw' : 'stock_weed_raw';
+            updates[stockKey] = (lab[stockKey] || 0) + amount;
+            toastMsg = `Récolte terminée : +${amount}g`;
+        } else if (stage === 'process') {
+            const stockKey = type === 'coke' ? 'stock_coke_pure' : 'stock_weed_pure';
+            updates[stockKey] = (lab[stockKey] || 0) + amount;
+            toastMsg = `Traitement terminé : +${amount}g`;
+        } else if (stage === 'sell') {
+            const price = DRUG_DATA[type].pricePerG * amount;
+            // Add cash directly
+            const { data: bank } = await state.supabase.from('bank_accounts').select('cash_balance').eq('character_id', state.activeCharacter.id).single();
+            await state.supabase.from('bank_accounts').update({ cash_balance: bank.cash_balance + price }).eq('character_id', state.activeCharacter.id);
+            toastMsg = `Vente terminée : +$${price}`;
+            await fetchBankData(state.activeCharacter.id);
+        }
+
+        await updateDrugLab(updates);
+        ui.showToast(toastMsg, 'success');
+        render();
     },
 
     // --- NEW HEIST SYSTEM (SYNC) ---
@@ -817,9 +956,13 @@ const startPolling = () => {
         // Update Heist Status
         if (state.activeHubPanel === 'illicit' && state.activeIllicitTab === 'heists') {
              await fetchActiveHeistLobby(state.activeCharacter.id);
-             // Trigger render if active to update timer or if status changed
-             // Optimization: checking specific conditions to avoid flicker would be better, but generic render is safer for prototype
              if(state.activeHeistLobby && state.activeHeistLobby.status === 'active') render(); 
+        }
+        
+        // Update Drug Status (Timers)
+         if (state.activeHubPanel === 'illicit' && state.activeIllicitTab === 'drugs') {
+             await fetchDrugLab(state.activeCharacter.id);
+             if(state.drugLab && state.drugLab.current_batch) render();
         }
     }, 1000); 
 };

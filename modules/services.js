@@ -114,6 +114,24 @@ export const fetchInventory = async (charId) => {
     state.patrimonyTotal = total;
 };
 
+// --- DRUG LAB SERVICES ---
+export const fetchDrugLab = async (charId) => {
+    let { data: lab } = await state.supabase.from('drug_labs').select('*').eq('character_id', charId).maybeSingle();
+    
+    if (!lab) {
+        // Init lab if not exists (but with everything false)
+        const { data: newLab } = await state.supabase.from('drug_labs').insert([{ character_id: charId }]).select().single();
+        lab = newLab;
+    }
+    state.drugLab = lab;
+};
+
+export const updateDrugLab = async (updates) => {
+    if(!state.activeCharacter) return;
+    await state.supabase.from('drug_labs').update(updates).eq('character_id', state.activeCharacter.id);
+    await fetchDrugLab(state.activeCharacter.id);
+};
+
 // --- HEIST SYNC SERVICES ---
 export const fetchActiveHeistLobby = async (charId) => {
     // 1. Check if user is in any active lobby

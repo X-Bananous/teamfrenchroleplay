@@ -1,3 +1,5 @@
+
+
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { hasPermission } from '../utils.js';
@@ -10,6 +12,10 @@ export const CharacterSelectView = () => {
         const statusColor = isAccepted ? 'text-emerald-400 bg-emerald-500/10' : 
                             isRejected ? 'text-red-400 bg-red-500/10' : 'text-amber-400 bg-amber-500/10';
         const statusIcon = isAccepted ? 'check-circle' : isRejected ? 'x-circle' : 'clock';
+
+        const alignColor = char.alignment === 'illegal' ? 'text-red-400 border-red-500/30 bg-red-500/10' : 'text-blue-400 border-blue-500/30 bg-blue-500/10';
+        const alignIcon = char.alignment === 'illegal' ? 'skull' : 'briefcase';
+        const alignLabel = char.alignment === 'illegal' ? 'Criminel' : 'Civil';
 
         let btnHtml = '';
         
@@ -55,9 +61,11 @@ export const CharacterSelectView = () => {
                         <span>Âge</span>
                         <span class="text-gray-300">${char.age} Ans</span>
                     </div>
-                    <div class="flex justify-between text-xs text-gray-500 uppercase tracking-wider font-semibold px-1 border-t border-white/5 pt-3">
-                        <span>Statut</span>
-                        <span class="text-gray-300">Civil</span>
+                    <div class="flex justify-between text-xs text-gray-500 uppercase tracking-wider font-semibold px-1 border-t border-white/5 pt-3 items-center">
+                        <span>Alignement</span>
+                        <span class="flex items-center gap-1 px-2 py-0.5 rounded border ${alignColor} text-[10px] uppercase font-bold">
+                            <i data-lucide="${alignIcon}" class="w-3 h-3"></i> ${alignLabel}
+                        </span>
                     </div>
                 </div>
 
