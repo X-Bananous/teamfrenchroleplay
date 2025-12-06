@@ -16,6 +16,9 @@ export interface StaffPermissions {
   can_bypass_login?: boolean;
   can_manage_characters?: boolean;
   can_manage_inventory?: boolean;
+  can_change_team?: boolean;
+  can_manage_illegal?: boolean;
+  can_go_onduty?: boolean;
 }
 
 export enum CharacterStatus {
@@ -34,6 +37,7 @@ export interface Character {
   age: number;
   status: CharacterStatus;
   created_at: string;
+  alignment?: 'legal' | 'illegal';
 }
 
 export interface QueueEntry {

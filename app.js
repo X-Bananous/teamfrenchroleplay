@@ -6,6 +6,8 @@
 
 
 
+
+
 /**
  * TFRP Core Logic
  * Modularized Structure
@@ -35,7 +37,10 @@ import {
     fetchServerStats,
     fetchPendingHeistReviews,
     adminResolveHeist,
-    fetchGlobalHeists
+    fetchGlobalHeists,
+    fetchERLCData,
+    fetchOnDutyStaff,
+    toggleStaffDuty
 } from './modules/services.js';
 import { HEIST_DATA, DRUG_DATA } from './modules/views/illicit.js';
 import { generateInventoryRow } from './modules/views/assets.js';
@@ -191,6 +196,8 @@ window.actions = {
         // --- DATA SYNC ON PANEL CHANGE ---
         if (panel === 'main') {
             await fetchGlobalHeists();
+            await fetchERLCData(); // Initial load
+            await fetchOnDutyStaff();
         } else if (panel === 'bank' && state.activeCharacter) {
             state.selectedRecipient = null;
             state.filteredRecipients = [];
@@ -221,7 +228,8 @@ window.actions = {
             const promises = [
                 fetchPendingApplications(), 
                 fetchAllCharacters(),
-                fetchStaffProfiles()
+                fetchStaffProfiles(),
+                fetchOnDutyStaff()
             ];
             
             if(hasPermission('can_manage_economy') || hasPermission('can_manage_illegal')) {
@@ -595,6 +603,11 @@ window.actions = {
         }, 0);
     },
 
+    toggleDuty: async () => {
+        await toggleStaffDuty();
+        render();
+    },
+
     decideApplication: async (id, status) => {
         if (!hasPermission('can_approve_characters')) return;
         const { error } = await state.supabase.from('characters').update({ status: status }).eq('id', id);
@@ -754,7 +767,9 @@ window.actions = {
             { k: 'can_manage_illegal', l: 'Gérer Illégal (Stats/Braquages)' },
             { k: 'can_manage_staff', l: 'Gérer Staff' },
             { k: 'can_manage_inventory', l: 'Gérer Inventaires' },
-            { k: 'can_change_team', l: 'Changer Équipe (Legal/Illegal)' }
+            { k: 'can_change_team', l: 'Changer Équipe (Legal/Illegal)' },
+            { k: 'can_go_onduty', l: 'Prendre son Service (Staff Mode)' },
+            { k: 'can_bypass_login', l: 'Bypass Login (Fondation)' }
         ].map(p => `
             <label class="flex items-center gap-3 p-3 bg-white/5 rounded-lg ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/10'} transition-colors">
                 <input type="checkbox" onchange="actions.updatePermission('${profile.id}', '${p.k}', this.checked)" 
@@ -1007,7 +1022,7 @@ const appRenderer = () => {
 
 // --- POLLING LOOP FOR SYNC (TIMERS & NOTIFS) ---
 const startPolling = () => {
-    // We do NOT call render() here anymore to prevent full page refreshes
+    // High Frequency Loop (Timers)
     setInterval(async () => {
         if (!state.user || !state.activeCharacter) return;
         
@@ -1015,11 +1030,6 @@ const startPolling = () => {
         // Fetched for both illicit tabs AND main menu summary
         if (state.activeHubPanel === 'illicit') {
              await fetchActiveHeistLobby(state.activeCharacter.id);
-             // If state changed drastically (e.g. from setup to active, or active to finished), trigger render once
-             // For simple timer updates, we use updateActiveTimers()
-             if (state.activeHeistLobby && state.activeHeistLobby.status !== 'active') {
-                 // Potentially refresh logic here if needed
-             }
         }
         
         // Update Drug Status (Data Only)
@@ -1031,6 +1041,15 @@ const startPolling = () => {
         updateActiveTimers();
 
     }, 1000); 
+
+    // Low Frequency Loop (ERLC, Global News)
+    setInterval(async () => {
+        if (!state.user) return;
+        await fetchERLCData();
+        await fetchGlobalHeists();
+        if (state.activeHubPanel === 'main') await fetchOnDutyStaff();
+        if (state.activeHubPanel === 'main') render(); // Soft refresh main panel
+    }, 30000);
 };
 
 // New function to update timers in DOM without killing focus or reloading
@@ -1042,7 +1061,14 @@ const updateActiveTimers = () => {
         const remaining = Math.max(0, Math.ceil((state.activeHeistLobby.end_time - now) / 1000));
         
         if (remaining <= 0) {
-            render(); // State change (active -> finished), so we render full page
+             // Timer finished. 
+             // We DO NOT CALL RENDER() here repeatedly.
+             // We just set 00:00. The full render happens only if the STATUS in DB changes (fetched by polling).
+             if(heistDisplay.textContent !== "00:00") {
+                 heistDisplay.textContent = "00:00";
+                 // Optional: Trigger one single render to show "Finish" button if we are on the page
+                 render();
+             }
         } else {
             heistDisplay.textContent = `${Math.floor(remaining / 60)}:${(remaining % 60).toString().padStart(2, '0')}`;
         }
@@ -1055,7 +1081,10 @@ const updateActiveTimers = () => {
         const remaining = Math.max(0, Math.ceil((state.drugLab.current_batch.end_time - now) / 1000));
         
         if (remaining <= 0) {
-             render(); // State change, render full page
+             if(drugDisplay.textContent !== "00:00") {
+                 drugDisplay.textContent = "00:00";
+                 render();
+             }
         } else {
              drugDisplay.textContent = `${Math.floor(remaining / 60)}:${(remaining % 60).toString().padStart(2, '0')}`;
         }

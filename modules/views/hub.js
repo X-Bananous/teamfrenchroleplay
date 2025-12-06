@@ -2,6 +2,8 @@
 
 
 
+
+
 import { state } from '../state.js';
 import { BankView } from './bank.js';
 import { StaffView } from './staff.js';
@@ -200,6 +202,11 @@ export const HubView = () => {
 
     const hasStaffAccess = Object.keys(state.user.permissions || {}).length > 0 || state.user.isFounder;
     const isIllegal = state.activeCharacter?.alignment === 'illegal';
+    
+    // ERLC Data
+    const { currentPlayers, maxPlayers, queue } = state.erlcData;
+    const queueLength = queue ? queue.length : 0;
+    const staffOnDuty = state.onDutyStaff || [];
 
     return `
         <div class="flex h-full w-full bg-[#050505]">
@@ -232,6 +239,31 @@ export const HubView = () => {
                         <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 mb-2">Staff</div>
                         ${navItem('staff', 'shield-alert', 'Administration', 'text-purple-400')}
                     ` : ''}
+                    
+                    <!-- ERLC SERVER STATUS WIDGET -->
+                    <div class="mt-6 mx-2 p-3 bg-white/5 rounded-xl border border-white/5">
+                         <div class="flex items-center gap-2 mb-2">
+                            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                            <span class="text-xs font-bold text-gray-300">Serveur ERLC</span>
+                         </div>
+                         <div class="flex justify-between text-sm mb-1">
+                            <span class="text-gray-400">Joueurs</span>
+                            <span class="text-white font-mono">${currentPlayers}/${maxPlayers}</span>
+                         </div>
+                         <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">File d'attente</span>
+                            <span class="text-white font-mono">${queueLength}</span>
+                         </div>
+                    </div>
+
+                    <!-- STAFF ON DUTY WIDGET -->
+                    <div class="mt-2 mx-2 p-3 bg-purple-500/5 rounded-xl border border-purple-500/10">
+                        <div class="text-[10px] font-bold text-purple-400 uppercase mb-2">Staff En Service (${staffOnDuty.length})</div>
+                        ${staffOnDuty.length > 0 
+                            ? `<div class="space-y-1">${staffOnDuty.map(s => `<div class="flex items-center gap-2 text-xs text-gray-300"><img src="${s.avatar_url}" class="w-4 h-4 rounded-full"> ${s.username}</div>`).join('')}</div>` 
+                            : '<div class="text-xs text-gray-500 italic">Aucun staff.</div>'
+                        }
+                    </div>
                 </div>
 
                 <div class="p-4 bg-black/20 border-t border-white/5">

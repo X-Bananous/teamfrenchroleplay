@@ -2,9 +2,11 @@
 
 
 
+
 import { state } from './state.js';
 import { showToast } from './ui.js';
 import { HEIST_DATA } from './views/illicit.js';
+import { CONFIG } from './config.js';
 
 export const loadCharacters = async () => {
     if (!state.user || !state.supabase) return;
@@ -61,6 +63,22 @@ export const fetchStaffProfiles = async () => {
     }
 };
 
+export const fetchOnDutyStaff = async () => {
+    const { data } = await state.supabase.from('profiles').select('username, avatar_url').eq('is_on_duty', true);
+    state.onDutyStaff = data || [];
+};
+
+export const toggleStaffDuty = async () => {
+    if (!state.user) return;
+    // Get current status
+    const { data } = await state.supabase.from('profiles').select('is_on_duty').eq('id', state.user.id).single();
+    const newStatus = !data.is_on_duty;
+    
+    await state.supabase.from('profiles').update({ is_on_duty: newStatus }).eq('id', state.user.id);
+    showToast(newStatus ? "Vous avez pris votre service." : "Vous avez quitté votre service.", 'success');
+    await fetchOnDutyStaff();
+};
+
 export const searchProfiles = async (query) => {
     if (!query) return [];
     const isId = /^\d+$/.test(query);
@@ -84,6 +102,28 @@ export const fetchGlobalHeists = async () => {
     
     state.globalActiveHeists = heists || [];
 };
+
+// --- ERLC API ---
+export const fetchERLCData = async () => {
+    try {
+        const response = await fetch(CONFIG.ERLC_API_URL, {
+            headers: { 'Server-Key': CONFIG.ERLC_API_KEY }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            state.erlcData = {
+                players: data.Players || [],
+                queue: data.Queue || [],
+                maxPlayers: data.MaxPlayers || 42,
+                currentPlayers: data.CurrentPlayers || (data.Players ? data.Players.length : 0)
+            };
+        }
+    } catch (e) {
+        console.warn("ERLC API Fetch Failed", e);
+    }
+};
+
 
 // --- STAFF STATS & ILLEGAL MANAGEMENT ---
 export const fetchServerStats = async () => {
@@ -112,10 +152,11 @@ export const fetchServerStats = async () => {
 
 export const fetchPendingHeistReviews = async () => {
     // Fetch lobbies waiting for staff validation (pending_review)
+    // AND fetch members count to calculate shares
     const { data: lobbies } = await state.supabase
         .from('heist_lobbies')
-        .select('*, characters(first_name, last_name)')
-        .eq('status', 'pending_review');
+        .select('*, characters(first_name, last_name), heist_members(count)') // Select count of members
+        .in('status', ['pending_review', 'active']); // We fetch active too to display gains during heist
     
     state.pendingHeistReviews = lobbies || [];
 };

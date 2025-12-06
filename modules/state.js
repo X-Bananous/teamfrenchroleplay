@@ -1,5 +1,6 @@
 
 
+
 export const state = {
     user: null, // Données Discord + Permissions
     accessToken: null,
@@ -12,6 +13,7 @@ export const state = {
     pendingApplications: [],
     allCharactersAdmin: [],
     staffMembers: [], // List of current staff
+    onDutyStaff: [], // Staff en service
     
     // Stats & Monitoring
     serverStats: {
@@ -23,6 +25,14 @@ export const state = {
         heistWinRate: 100
     },
     pendingHeistReviews: [], // Braquages en attente de validation staff
+    
+    // ERLC Server Data
+    erlcData: {
+        players: [],
+        queue: [],
+        maxPlayers: 42,
+        currentPlayers: 0
+    },
     
     // Search States for Staff Panel
     staffSearchQuery: '', 

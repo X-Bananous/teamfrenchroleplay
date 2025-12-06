@@ -4,14 +4,20 @@
 
 
 
+
+
 import { state } from '../state.js';
 import { CONFIG } from '../config.js';
 import { hasPermission } from '../utils.js';
+import { HEIST_DATA } from './illicit.js';
 
 export const StaffView = () => {
     // Basic check: Must have at least ONE permission or be founder
     const hasAnyPerm = Object.keys(state.user.permissions || {}).length > 0 || state.user.isFounder;
     if (!hasAnyPerm) return `<div class="p-8 text-red-500">Accès interdit.</div>`;
+
+    // Duty Check
+    const isOnDuty = state.onDutyStaff?.some(s => s.username === state.user.username); // Simple check based on loaded list
 
     let content = '';
 
@@ -312,28 +318,43 @@ export const StaffView = () => {
                 ${pendingHeists.length === 0 ? '<div class="text-center text-gray-500 py-6 italic">Aucune opération en attente.</div>' : `
                     <div class="space-y-4">
                         ${pendingHeists.map(lobby => {
-                            // Find heist name via ID (assuming HEIST_DATA is imported or we hardcode names for display safety)
-                            const heistName = lobby.heist_type === 'bank' ? 'Banque Centrale' : 
-                                              lobby.heist_type === 'jewelry' ? 'Bijouterie' : 
-                                              lobby.heist_type === 'truck' ? 'Fourgon Blindé' : lobby.heist_type;
+                            // Find heist info
+                            const hInfo = HEIST_DATA.find(h => h.id === lobby.heist_type);
+                            const heistName = hInfo ? hInfo.name : lobby.heist_type;
                             
+                            // Calculate Estimated Gain
+                            const memberCount = lobby.heist_members ? lobby.heist_members[0]?.count || 1 : 1;
+                            const maxGain = hInfo ? hInfo.max : 0;
+                            const perPerson = Math.floor(maxGain / Math.max(1, memberCount));
+
                             return `
                                 <div class="bg-white/5 p-4 rounded-xl border border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
                                     <div>
                                         <div class="font-bold text-white text-lg flex items-center gap-2">
                                             ${heistName}
-                                            <span class="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">En cours</span>
+                                            <span class="text-xs ${lobby.status === 'active' ? 'bg-orange-500/20 text-orange-400' : 'bg-purple-500/20 text-purple-400'} px-2 py-1 rounded uppercase">${lobby.status === 'active' ? 'En Cours' : 'Terminé'}</span>
                                         </div>
                                         <div class="text-sm text-gray-400">Chef d'équipe: <span class="text-white">${lobby.characters?.first_name} ${lobby.characters?.last_name}</span></div>
                                         <div class="text-xs text-gray-500 mt-1">ID: ${lobby.id}</div>
+                                        ${hInfo ? `
+                                            <div class="mt-2 text-xs font-mono text-emerald-400">
+                                                Gain Est. Total: $${maxGain.toLocaleString()} <span class="text-gray-500">|</span> Par Tête: ~$${perPerson.toLocaleString()}
+                                            </div>
+                                        ` : ''}
                                     </div>
                                     <div class="flex gap-3">
-                                        <button onclick="actions.validateHeist('${lobby.id}', true)" class="glass-btn bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-bold text-sm shadow-lg shadow-emerald-900/20">
-                                            Succès (Gain)
-                                        </button>
-                                        <button onclick="actions.validateHeist('${lobby.id}', false)" class="glass-btn bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg font-bold text-sm shadow-lg shadow-red-900/20">
-                                            Échec (Police)
-                                        </button>
+                                        ${lobby.status === 'active' ? `
+                                             <button disabled class="glass-btn bg-gray-600/50 cursor-not-allowed px-4 py-2 rounded-lg font-bold text-sm">
+                                                En Cours...
+                                            </button>
+                                        ` : `
+                                            <button onclick="actions.validateHeist('${lobby.id}', true)" class="glass-btn bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-bold text-sm shadow-lg shadow-emerald-900/20">
+                                                Succès (Payer)
+                                            </button>
+                                            <button onclick="actions.validateHeist('${lobby.id}', false)" class="glass-btn bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg font-bold text-sm shadow-lg shadow-red-900/20">
+                                                Échec (Police)
+                                            </button>
+                                        `}
                                     </div>
                                 </div>
                             `;
@@ -374,6 +395,7 @@ export const StaffView = () => {
                                         ${m.permissions.can_manage_characters ? '<span class="text-[9px] px-1 bg-orange-500/20 text-orange-300 rounded">DB</span>' : ''}
                                         ${m.permissions.can_manage_inventory ? '<span class="text-[9px] px-1 bg-teal-500/20 text-teal-300 rounded">Inv</span>' : ''}
                                         ${m.permissions.can_change_team ? '<span class="text-[9px] px-1 bg-pink-500/20 text-pink-300 rounded">Team</span>' : ''}
+                                        ${m.permissions.can_go_onduty ? '<span class="text-[9px] px-1 bg-lime-500/20 text-lime-300 rounded">Service</span>' : ''}
                                         ${m.permissions.can_bypass_login ? '<span class="text-[9px] px-1 bg-yellow-500/20 text-yellow-300 rounded">Bypass</span>' : ''}
                                     </div>
                                 </div>
@@ -387,11 +409,22 @@ export const StaffView = () => {
 
     return `
         <div class="animate-fade-in max-w-6xl mx-auto relative">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="p-2 bg-purple-500/20 rounded-lg text-purple-400">
-                    <i data-lucide="shield-alert" class="w-6 h-6"></i>
+             <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-purple-500/20 rounded-lg text-purple-400">
+                        <i data-lucide="shield-alert" class="w-6 h-6"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white">Administration</h2>
                 </div>
-                <h2 class="text-2xl font-bold text-white">Administration</h2>
+                ${hasPermission('can_go_onduty') ? `
+                    <button onclick="actions.toggleDuty()" class="glass-btn-secondary px-4 py-2 rounded-xl flex items-center gap-2 font-bold transition-all ${isOnDuty ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30' : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'}">
+                        <span class="relative flex h-3 w-3">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full ${isOnDuty ? 'bg-red-400' : 'bg-emerald-400'} opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-3 w-3 ${isOnDuty ? 'bg-red-500' : 'bg-emerald-500'}"></span>
+                        </span>
+                        ${isOnDuty ? 'Fin de Service' : 'Prendre Service'}
+                    </button>
+                ` : ''}
             </div>
             ${tabsHtml}
             ${content}

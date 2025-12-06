@@ -1,3 +1,4 @@
+
 export const CONFIG = {
     SUPABASE_URL: 'https://nitlrwmgoddqabasavrg.supabase.co',
     SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pdGxyd21nb2RkcWFiYXNhdnJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3Mzg3NTIsImV4cCI6MjA3OTMxNDc1Mn0.Y5BFeTuv-dxLpf9ocqyhaWMLLCwlKf-bPDgpWq0o8oU',
@@ -7,6 +8,10 @@ export const CONFIG = {
     REDIRECT_URI: 'https://x-bananous.github.io/teamfrenchroleplay/',
     REQUIRED_GUILD_ID: '1279455759414857759',
     INVITE_URL: 'https://discord.gg/eBU7KKKGD5',
+    
+    // ERLC Configuration
+    ERLC_API_URL: 'https://api.policeroleplay.community/v1/server',
+    ERLC_API_KEY: 'jlmQqlbnYaYYGbHGPMuX-XhpdlwcePGzBmakHyNyEyHvAMYWSIIjLhEHLCyDP',
     
     // Game Rules
     MAX_SLOTS: 42,
